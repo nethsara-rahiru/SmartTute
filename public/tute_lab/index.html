@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartTute Studio - Tute & Question Creator Lab</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- KaTeX CSS & JS for Math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Cropper.js for Interactive Image Cropping & Editing -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+
+    <!-- Global CSS -->
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+    <!-- Main App Container -->
+    <div class="app-container">
+        <!-- Top Navbar -->
+        <header class="app-header">
+            <div class="brand-section">
+                <a class="brand" href="../live_class/index.html">
+                    <span>S</span>
+                    <div>
+                        <strong>SmartTute</strong>
+                        <small
+                            style="display:block; font-size:11px; color:var(--muted); font-weight:500; line-height:1;">Studio
+                            Lab</small>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Tute Title & Edit Settings Trigger Bar -->
+            <div class="tute-title-bar">
+                <button class="tute-header-title-btn" id="btnOpenMetaDrawer" title="Edit Tute Name & Metadata Settings">
+                    <span id="headerTuteTitleDisplay" class="header-tute-title-text">Advanced Mathematics & Geometry
+                        Practice</span>
+                    <i class="fa-solid fa-pen-to-square edit-icon"></i>
+                </button>
+            </div>
+
+            <!-- Header Action Controls -->
+            <div class="header-actions">
+                <div class="view-mode-dropdown-wrap">
+                    <i class="fa-solid fa-layer-group view-dropdown-icon"></i>
+                    <select id="viewModeSelect" class="view-mode-select" aria-label="Select Workspace View Mode">
+                        <option value="split" selected>Split View</option>
+                        <option value="editor">Code Only</option>
+                        <option value="preview">Preview Only</option>
+                        <option value="student">Student Test</option>
+                    </select>
+                </div>
+
+                <div class="action-dropdown">
+                    <!-- Light / Dark Mode Toggle Button -->
+                    <button class="theme-toggle-btn" id="themeToggle" aria-label="Toggle theme"
+                        title="Toggle Theme (Light / Dark)">
+                        <i class="fa-solid fa-sun icon-sun"></i>
+                        <i class="fa-solid fa-moon icon-moon"></i>
+                    </button>
+                    <button class="btn btn-secondary" id="btnImportJson" title="Load JSON Tute"><i
+                            class="fa-solid fa-upload"></i></button>
+                    <button class="btn btn-primary" id="btnSaveDb" title="Save Tute to Database"><i
+                            class="fa-solid fa-floppy-disk"></i> Save</button>
+                    <button class="btn btn-subtle" id="btnExportJson" title="Export Tute JSON"><i
+                            class="fa-solid fa-download"></i> Export</button>
+                    <button class="btn btn-accent" id="btnPrintTute" title="Print Clean Worksheet or Solution Sheet"><i
+                            class="fa-solid fa-print"></i></button>
+                    <input type="file" id="importFileInput" accept=".json" style="display: none;">
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Workspace -->
+        <main class="workspace" id="workspace">
+
+            <!-- Left Pane: Question List & LaTeX Editor -->
+            <section class="pane editor-pane" id="editorPane">
+
+                <!-- Question Selector Bar -->
+                <div class="question-nav-bar">
+                    <div class="q-nav-header">
+                        <span class="q-nav-title"><i class="fa-solid fa-list-check"></i> Questions (<span
+                                id="questionCount">0</span>)</span>
+                        <button class="btn-sm btn-success" id="btnAddQuestion"><i class="fa-solid fa-plus"></i> Add
+                            Question</button>
+                    </div>
+                    <div class="question-pills-container" id="questionPills">
+                        <!-- Dynamic Question Pills rendered by JS -->
+                    </div>
+                </div>
+
+                <!-- Active Question Details Sub-header -->
+                <div class="active-q-bar">
+                    <div class="q-title-input-wrap">
+                        <span class="q-number-badge" id="activeQNumBadge">Q1</span>
+                        <input type="text" id="activeQTitle"
+                            placeholder="Question Title (e.g., Solving Quadratic Formulas)"
+                            value="Algebraic Expression & Geometry">
+                    </div>
+                    <div class="q-meta-inputs">
+                        <div class="marks-input-wrap">
+                            <label><i class="fa-solid fa-award"></i> Marks:</label>
+                            <input type="number" id="activeQMarks" value="10" min="1" max="100">
+                        </div>
+                        <button class="btn-sm btn-icon btn-outline" id="btnDuplicateQuestion"
+                            title="Duplicate Question"><i class="fa-solid fa-copy"></i></button>
+                        <button class="btn-sm btn-icon btn-danger" id="btnDeleteQuestion" title="Delete Question"><i
+                                class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+
+                <!-- Tabbed Modern LaTeX Snippets Toolbar -->
+                <div class="tabbed-editor-toolbar">
+                    <div class="toolbar-tabs">
+                        <button class="tb-tab-btn active" data-tab="tab-answers"><i
+                                class="fa-solid fa-square-check"></i> Answers</button>
+                        <button class="tb-tab-btn" data-tab="tab-math"><i class="fa-solid fa-square-root-variable"></i>
+                            Math Formulas</button>
+                        <button class="tb-tab-btn" data-tab="tab-diagrams"><i class="fa-solid fa-shapes"></i>
+                            Diagrams</button>
+                        <button class="tb-tab-btn" data-tab="tab-symbols"><i class="fa-solid fa-omega"></i>
+                            Symbols</button>
+                    </div>
+
+                    <div class="toolbar-tab-contents">
+                        <!-- Answers Tab -->
+                        <div class="tb-tab-content active" id="tab-answers">
+                            <div class="toolbar-group">
+                                <button class="tb-btn highlight-tb" id="tbInsertAnswer"
+                                    title="Insert Answer Box tag {{answer1}}"><i class="fa-solid fa-plus-circle"></i>
+                                    Insert Answer Field {{answer}}</button>
+                                <button class="tb-btn image-tb" id="tbInsertImage"
+                                    title="Upload and embed an image figure into this question"><i
+                                        class="fa-solid fa-image"></i> Insert Figure</button>
+                                <span class="tab-tip-text"><i class="fa-solid fa-circle-info"></i> Insert dynamic
+                                    student fill-in boxes or image figures into LaTeX text</span>
+                            </div>
+                        </div>
+
+                        <!-- Math Tab -->
+                        <div class="tb-tab-content" id="tab-math">
+                            <div class="toolbar-group">
+                                <button class="tb-btn" data-snippet="\frac{a}{b}" title="Fraction"><i
+                                        class="fa-solid fa-divide"></i> Frac</button>
+                                <button class="tb-btn" data-snippet="\sqrt{x}" title="Square Root"><i
+                                        class="fa-solid fa-square-root-variable"></i> Sqrt</button>
+                                <button class="tb-btn" data-snippet="x^{2}" title="Exponent">x²</button>
+                                <button class="tb-btn" data-snippet="\int_{a}^{b} f(x) \,dx" title="Integral">∫</button>
+                                <button class="tb-btn" data-snippet="\sum_{i=1}^{n} x_i" title="Summation">∑</button>
+                                <button class="tb-btn" data-snippet="\begin{pmatrix} a & b \\ c & d \end{pmatrix}"
+                                    title="Matrix"><i class="fa-solid fa-table-cells"></i> Matrix</button>
+                            </div>
+                        </div>
+
+                        <!-- Diagrams & SVG Vector Graphics Tab -->
+                        <div class="tb-tab-content" id="tab-diagrams">
+                            <div class="toolbar-group">
+                                <button class="tb-btn diagram-tb" data-diagram="tikz"
+                                    title="Insert TikZ LaTeX Diagram Code"><i class="fa-solid fa-code-merge"></i> TikZ
+                                    Code</button>
+                                <button class="tb-btn diagram-tb" data-diagram="venn" title="Insert Venn Diagram"><i
+                                        class="fa-solid fa-circles-intersect"></i> Venn</button>
+                                <button class="tb-btn diagram-tb" data-diagram="geometry"
+                                    title="Insert Triangle Geometry"><i class="fa-solid fa-shapes"></i>
+                                    Triangle</button>
+                                <button class="tb-btn diagram-tb" data-diagram="circle"
+                                    title="Insert Circle Geometry"><i class="fa-solid fa-circle-dot"></i> Circle
+                                    Arc</button>
+                                <button class="tb-btn diagram-tb" data-diagram="graph"
+                                    title="Insert Parabola Function Graph"><i class="fa-solid fa-chart-line"></i>
+                                    Graph</button>
+                                <button class="tb-btn diagram-tb" data-diagram="axes"
+                                    title="Insert 2D Coordinate Axis Lines"><i class="fa-solid fa-vector-square"></i> 2D
+                                    Axes</button>
+                                <button class="tb-btn diagram-tb" data-diagram="barchart"
+                                    title="Insert Vector Histogram / Bar Chart"><i class="fa-solid fa-chart-simple"></i>
+                                    Bar Chart</button>
+                                <button class="tb-btn diagram-tb" data-diagram="table" title="Insert LaTeX Table"><i
+                                        class="fa-solid fa-table"></i> Table</button>
+                            </div>
+                        </div>
+
+                        <!-- Symbols Tab -->
+                        <div class="tb-tab-content" id="tab-symbols">
+                            <div class="toolbar-group">
+                                <button class="tb-btn" data-snippet="\alpha">α</button>
+                                <button class="tb-btn" data-snippet="\beta">β</button>
+                                <button class="tb-btn" data-snippet="\theta">θ</button>
+                                <button class="tb-btn" data-snippet="\pi">π</button>
+                                <button class="tb-btn" data-snippet="\Delta">Δ</button>
+                                <button class="tb-btn" data-snippet="\approx">≈</button>
+                                <button class="tb-btn" data-snippet="\le">≤</button>
+                                <button class="tb-btn" data-snippet="\ge">≥</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LaTeX Code Editor Wrapper -->
+                <div class="code-editor-container">
+                    <textarea id="latexEditor" spellcheck="false" placeholder="Type LaTeX question content here...
+Use {{answer1}}, {{answer2}} to embed answer input boxes.
+Use \diagram{venn, ...} or \diagram{geometry, ...} to render rich visuals."></textarea>
+                    <div class="editor-footer-info">
+                        <span><i class="fa-solid fa-keyboard"></i> Use toolbar tabs above or <kbd>Ctrl</kbd> +
+                            <kbd>Space</kbd> for tags</span>
+                        <span id="charCount">0 chars</span>
+                    </div>
+                </div>
+
+                <!-- Answer Key & Solution Management Section -->
+                <div class="answer-key-section">
+                    <div class="section-header" id="toggleAnswerKey">
+                        <div class="header-left">
+                            <i class="fa-solid fa-key" style="color:var(--blue);"></i>
+                            <span class="section-title">Answer Keys & Solutions (<span
+                                    id="detectedAnswersCount">0</span> detected)</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down fold-icon"></i>
+                    </div>
+
+                    <div class="answer-key-body" id="answerKeyBody">
+                        <div class="answer-keys-list" id="answerKeysList">
+                            <!-- Dynamic Answer Key Inputs rendered by JS -->
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- Split Resizer Bar -->
+            <div class="pane-resizer" id="paneResizer" title="Drag to resize panels">
+                <div class="resizer-handle"></div>
+            </div>
+
+            <!-- Right Pane: Live Interactive Previewer -->
+            <section class="pane preview-pane" id="previewPane">
+
+                <!-- Preview Control Bar -->
+                <div class="preview-header-bar">
+                    <div class="p-header-right">
+                        <button class="btn-sm btn-subtle" id="btnToggleSolutionPreview"
+                            title="Toggle Full Solution View"><i class="fa-solid fa-eye"></i> Show Solutions</button>
+                        <button class="btn-sm btn-subtle" id="btnPreviewTheme"
+                            title="Toggle Preview Background (Light Worksheet vs Dark Studio)"><i
+                                class="fa-solid fa-circle-half-stroke"></i> Paper Theme</button>
+                    </div>
+                </div>
+
+                <!-- Render Surface Container (Paper View) -->
+                <div class="paper-wrapper" id="paperWrapper">
+                    <div class="tute-paper paper-dark" id="tutePaper">
+
+                        <!-- Printable Tute Header Header -->
+                        <div class="paper-tute-header">
+                            <div class="paper-brand">
+                                <span class="paper-logo">SmartTute Studio</span>
+                                <span class="paper-meta-term" id="paperMetaTerm">Term 1 • Grade 11 (O/L)</span>
+                            </div>
+                            <h1 class="paper-tute-title" id="paperTuteTitle">Advanced Mathematics & Geometry Practice
+                            </h1>
+                            <div class="paper-student-info-grid">
+                                <div class="student-info-item"><span>Student Name:</span>
+                                    <div class="dotted-line"></div>
+                                </div>
+                                <div class="student-info-item"><span>Class/Index:</span>
+                                    <div class="dotted-line"></div>
+                                </div>
+                                <div class="student-info-item"><span>Date:</span>
+                                    <div class="dotted-line"></div>
+                                </div>
+                                <div class="student-info-item"><span>Total Marks:</span> <span id="paperTotalMarks"
+                                        class="paper-total-marks">0</span></div>
+                            </div>
+                        </div>
+
+                        <hr class="paper-divider">
+
+                        <!-- Mode Switch Banner for Student Testing -->
+                        <div class="student-test-banner" id="studentTestBanner" style="display: none;">
+                            <div class="banner-content">
+                                <i class="fa-solid fa-gamepad banner-icon"></i>
+                                <div>
+                                    <strong>Interactive Student Testing Mode Active</strong>
+                                    <p>Fill in the answer fields below and click "Validate & Score Tute" to check your
+                                        responses.</p>
+                                </div>
+                            </div>
+                            <button class="btn btn-success" id="btnSubmitStudentAnswers"><i
+                                    class="fa-solid fa-check-double"></i> Validate & Score Tute</button>
+                        </div>
+
+                        <!-- Rendered Questions Container -->
+                        <div class="paper-questions-list" id="paperQuestionsList">
+                            <!-- Live rendered questions injection site -->
+                        </div>
+
+                        <!-- Full Tute Solution Key Summary (visible in Solution View or Print mode) -->
+                        <div class="paper-solutions-container" id="paperSolutionsContainer" style="display: none;">
+                            <div class="solutions-header">
+                                <h2><i class="fa-solid fa-check-to-slot"></i> Master Answer Key & Worked Solutions</h2>
+                            </div>
+                            <div class="solutions-list" id="paperSolutionsList">
+                                <!-- Rendered solutions injection site -->
+                            </div>
+                        </div>
+
+                        <!-- Paper Footer -->
+                        <div class="paper-footer">
+                            <span>SmartTute Studio - Created with Tute Lab Engine</span>
+                            <span class="page-num">Page 1 of 1</span>
+                        </div>
+
+                    </div>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <!-- Student Score Results Modal -->
+    <div class="modal-overlay" id="scoreModalOverlay" style="display: none;">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-trophy" style="color:var(--blue);"></i> Evaluation Score Report</h3>
+                <button class="modal-close" id="btnCloseScoreModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="score-circle-wrap">
+                    <svg class="score-circle" viewBox="0 0 36 36">
+                        <path class="circle-bg"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle-fill" id="scoreCirclePath" stroke-dasharray="0, 100"
+                            d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                    <div class="score-number-display">
+                        <span id="scorePercent">0%</span>
+                        <small id="scoreFraction">0 / 0 Marks</small>
+                    </div>
+                </div>
+
+                <div class="score-feedback-text" id="scoreFeedbackText">
+                    Great effort! Review the detailed answer breakdown below.
+                </div>
+
+                <div class="modal-breakdown-list" id="scoreBreakdownList">
+                    <!-- Dynamic breakdown items -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btnModalClose">Close</button>
+                <button class="btn btn-primary" id="btnModalReviewSolutions"><i class="fa-solid fa-book-open"></i>
+                    Review Worked Solutions</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Upload & Edit Modal -->
+    <div class="modal-overlay" id="imageModalOverlay" style="display:none;">
+        <div class="modal-card image-upload-modal">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-image" style="color:var(--blue);"></i> <span id="imgModalTitle">Insert Image
+                        Figure</span></h3>
+                <button class="modal-close" id="btnCloseImageModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Drop Zone -->
+                <div class="img-drop-zone" id="imgDropZone">
+                    <div class="img-drop-inner" id="imgDropInner">
+                        <i class="fa-solid fa-cloud-arrow-up img-drop-icon"></i>
+                        <p class="img-drop-text">Drag &amp; drop an image here</p>
+                        <p class="img-drop-sub">or click to browse (PNG, JPG, SVG, WebP)</p>
+                        <input type="file" id="imgFileInput" accept="image/*" style="display:none;">
+                    </div>
+                    <!-- Interactive Cropper & Preview Area -->
+                    <div class="img-preview-wrap" id="imgPreviewWrap" style="display:none;">
+                        <div class="cropper-container-box">
+                            <div class="modal-img-stage" id="modalImgStage"
+                                style="position: relative; display: inline-block; line-height: 0;">
+                                <img id="imgPreviewEl" src="" alt="Preview" class="img-preview-el">
+                            </div>
+                        </div>
+
+                        <!-- Image Editing & Hotspot Toolbar -->
+                        <div class="img-crop-toolbar" id="imgCropToolbar">
+                            <div class="toolbar-mode-switch">
+                                <button type="button" class="btn-sm btn-subtle active" id="btnModeCrop"><i
+                                        class="fa-solid fa-crop-simple"></i> Crop Mode</button>
+                                <button type="button" class="btn-sm btn-subtle" id="btnModeHotspot"><i
+                                        class="fa-solid fa-crosshairs"></i> Add Hotspots</button>
+                            </div>
+
+                            <!-- Crop tools -->
+                            <div class="tool-subgroup" id="cropToolsGroup">
+                                <button type="button" class="btn-sm btn-subtle" id="btnApplyCrop"
+                                    title="Crop Selection"><i class="fa-solid fa-check"></i> Apply Crop</button>
+                                <button type="button" class="btn-sm btn-subtle" id="btnRotateLeft"
+                                    title="Rotate Counter-Clockwise 90°"><i
+                                        class="fa-solid fa-rotate-left"></i></button>
+                                <button type="button" class="btn-sm btn-subtle" id="btnRotateRight"
+                                    title="Rotate Clockwise 90°"><i class="fa-solid fa-rotate-right"></i></button>
+                                <button type="button" class="btn-sm btn-subtle" id="btnResetCrop"
+                                    title="Reset Image to Original"><i class="fa-solid fa-arrow-rotate-left"></i>
+                                    Reset</button>
+                            </div>
+
+                            <button type="button" class="img-remove-btn" id="btnImgRemove"
+                                title="Remove / Change Image"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hotspots Manager List (Visible in Hotspot Mode or when hotspots exist) -->
+                <div class="hotspot-manager-section" id="hotspotManagerSection" style="display:none;">
+                    <div class="section-sub-header">
+                        <span><i class="fa-solid fa-bullseye" style="color:var(--blue);"></i> Interactive Answer
+                            Hotspots (<span id="hotspotCountBadge">0</span>)</span>
+                        <small style="color:var(--text-muted); font-size:0.75rem;">Click anywhere on the image preview
+                            above to pin a new answer hotspot</small>
+                    </div>
+                    <div class="hotspots-list" id="hotspotsList">
+                        <!-- Dynamic Hotspot Items -->
+                    </div>
+                </div>
+
+                <!-- Caption -->
+                <div class="img-modal-field">
+                    <label for="imgCaptionInput"><i class="fa-solid fa-pen-nib"></i> Figure Caption (optional)</label>
+                    <input type="text" id="imgCaptionInput" class="drawer-input"
+                        placeholder="e.g. Figure 1: Triangle ABC with angle theta">
+                </div>
+
+                <!-- Width control -->
+                <div class="img-modal-field">
+                    <label for="imgWidthSelect"><i class="fa-solid fa-arrows-left-right"></i> Display Size</label>
+                    <select id="imgWidthSelect" class="drawer-select">
+                        <option value="small">Small (30%)</option>
+                        <option value="medium" selected>Medium (55%)</option>
+                        <option value="large">Large (80%)</option>
+                        <option value="full">Full Width (100%)</option>
+                    </select>
+                </div>
+
+                <!-- Alignment control -->
+                <div class="img-modal-field">
+                    <label for="imgAlignSelect"><i class="fa-solid fa-align-center"></i> Alignment</label>
+                    <select id="imgAlignSelect" class="drawer-select">
+                        <option value="left">Left</option>
+                        <option value="center" selected>Center</option>
+                        <option value="right">Right</option>
+                    </select>
+                </div>
+
+                <p class="img-modal-hint"><i class="fa-solid fa-circle-info"></i> The figure tag (e.g.
+                    <code>{image_1}</code>) will be embedded in the question. You can position it anywhere in the LaTeX
+                    editor.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="btnCancelImageModal">Cancel</button>
+                <button class="btn btn-primary" id="btnConfirmImageModal" disabled><i class="fa-solid fa-check"></i>
+                    <span id="btnConfirmImgText">Insert Figure</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide-out Tute Metadata Drawer Modal -->
+    <div class="drawer-overlay" id="metaDrawerOverlay"></div>
+    <aside class="side-drawer" id="metaDrawer" aria-label="Tute settings drawer">
+        <div class="drawer-header">
+            <h3><i class="fa-solid fa-sliders" style="color:var(--blue);"></i> Worksheet Settings</h3>
+            <button class="drawer-close-btn" id="btnCloseMetaDrawer">&times;</button>
+        </div>
+        <div class="drawer-body">
+            <div class="drawer-form-group">
+                <label for="tuteTitle"><i class="fa-solid fa-file-pen"></i> Tute / Worksheet Name</label>
+                <input type="text" id="tuteTitle" class="drawer-input"
+                    placeholder="Tute Name (e.g. Quadratic Equations)" value="Advanced Mathematics & Geometry Practice">
+            </div>
+
+            <div class="drawer-form-group">
+                <label for="tuteGrade"><i class="fa-solid fa-graduation-cap"></i> Target Grade Level</label>
+                <select id="tuteGrade" class="drawer-select">
+                    <option value="Grade 6">Grade 6</option>
+                    <option value="Grade 7">Grade 7</option>
+                    <option value="Grade 8">Grade 8</option>
+                    <option value="Grade 9">Grade 9</option>
+                    <option value="Grade 10">Grade 10</option>
+                    <option value="Grade 11 (O/L)" selected>Grade 11 (O/L)</option>
+                    <option value="Grade 12 (A/L)">Grade 12 (A/L)</option>
+                    <option value="Grade 13 (A/L)">Grade 13 (A/L)</option>
+                </select>
+            </div>
+
+            <div class="drawer-form-group">
+                <label for="tuteTermSelect"><i class="fa-solid fa-calendar-days"></i> Examination / Term</label>
+                <select id="tuteTerm" class="drawer-select">
+                    <option value="Term 1" selected>Term 1</option>
+                    <option value="Term 2">Term 2</option>
+                    <option value="Term 3">Term 3</option>
+                    <option value="Mid-Year Exam">Mid-Year Exam</option>
+                    <option value="Final Model Paper">Final Model Paper</option>
+                </select>
+            </div>
+
+            <div class="drawer-form-group">
+                <label for="tuteSubjectSelect"><i class="fa-solid fa-book-bookmark"></i> Subject Area</label>
+                <select id="tuteSubject" class="drawer-select">
+                    <option value="Mathematics" selected>Mathematics</option>
+                    <option value="Physics">Physics</option>
+                    <option value="Chemistry">Chemistry</option>
+                    <option value="Combined Maths">Combined Maths</option>
+                    <option value="Science">Science</option>
+                </select>
+            </div>
+        </div>
+        <div class="drawer-footer">
+            <button class="btn btn-primary" id="btnSaveMetaDrawer"><i class="fa-solid fa-check"></i> Apply
+                Settings</button>
+        </div>
+    </aside>
+
+    <!-- Application Script -->
+    <script src="/tute_lab/app.js"></script>
+</body>
+
+</html>

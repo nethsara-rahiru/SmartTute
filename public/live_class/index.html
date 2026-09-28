@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="SmartTute interactive video lesson with pause-and-quiz checkpoints.">
+  <title>SmartTute | Interactive Lesson</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Global Stylesheet -->
+  <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+  <aside class="left-rail" aria-label="Navigation controls">
+    <button class="menu-button" id="menuButton" aria-label="Open navigation menu"
+      aria-expanded="false"><i></i><i></i><i></i></button>
+    <div class="rail-bottom-actions">
+      <button class="rail-icon-button" id="themeToggle" aria-label="Switch to dark mode" title="Toggle theme">☼</button>
+      <button class="chat-toggle" id="chatToggleRail" aria-label="Open lesson chat" aria-expanded="false"
+        title="Open chat">⌁</button>
+      <button class="rail-icon-button" id="flagQuestionButton" aria-label="Ask for help with this question"
+        aria-pressed="false" title="Ask for help">⚑</button>
+      <button class="account-button" id="accountButton" aria-label="Open user account"
+        title="Student account">A</button>
+    </div>
+  </aside>
+  <div class="menu-backdrop" id="menuBackdrop"></div>
+  <div class="help-message hidden" id="helpMessage" role="status">You asked for help</div>
+  <nav class="side-menu" id="sideMenu" aria-label="Main navigation">
+    <div class="menu-brand"><span>S</span>
+      <div><strong>SmartTute</strong><small>Interactive video lesson</small></div><button id="closeMenu"
+        aria-label="Close menu">×</button>
+    </div>
+    <a href="/live_class/index.html" class="active">🎥 <span>Live Class</span></a>
+    <a href="/tute_library/index.html">📚 <span>Tute Library</span></a>
+    <a href="/tute_lab/index.html">🛠️ <span>Tute Creator (Lab)</span></a>
+    <div class="menu-footer"><b>A</b>
+      <div><strong>Student</strong><small>Grade 10</small></div>
+    </div>
+  </nav>
+
+  <main class="page">
+
+    <section class="lesson-layout">
+      <div class="lesson-content">
+        <div class="video-card">
+          <div id="youtubePlayer" title="Lesson video"></div>
+          <div class="iframe-click-blocker" aria-hidden="true"></div>
+          <div class="video-loader" id="videoLoader" role="status" aria-live="polite">
+            <span class="spinner" aria-hidden="true"></span>
+            <span>Loading lesson video…</span>
+          </div>
+          <aside class="chat-panel" id="chatPanel" aria-label="Lesson chat">
+            <div class="chat-header"><strong>Class chat</strong><button id="closeChat"
+                aria-label="Close chat">×</button></div>
+            <div class="chat-messages" id="chatMessages">
+              <p class="chat-system">Ask a question about this lesson.</p>
+            </div>
+            <form class="chat-form" id="chatForm"><input id="chatInput" autocomplete="off"
+                placeholder="Write a message…"><button type="submit" aria-label="Send message">↑</button></form>
+          </aside>
+        </div>
+
+        <section class="question-box hidden" id="questionBox" aria-live="polite">
+          <div class="waiting-question" id="waitingQuestion">
+            <div class="question-icon">?</div>
+            <div>
+              <h2>Questions will appear here</h2>
+              <p>Continue watching. The video pauses when it reaches a checkpoint.</p>
+            </div>
+          </div>
+
+          <div class="active-question hidden" id="activeQuestion">
+            <div class="question-topline"><span></span><span id="questionCount"></span></div>
+            <h2 id="questionTitle">Quick check</h2>
+            <p id="questionText"></p>
+            <div class="answers" id="answers"></div>
+            <p class="feedback" id="feedback"></p>
+            <button class="continue-button" id="continueButton" disabled>Choose an answer to continue</button>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+  <script src="script.js"></script>
+</body>
+
+</html>

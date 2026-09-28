@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="SmartTute Tute Library - Browse, manage, edit, preview, and delete your interactive tutorial worksheets.">
+    <title>SmartTute | Tute Library</title>
+
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Global Master Stylesheet -->
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body class="library-body">
+    <!-- Left Navigation Rail -->
+    <aside class="left-rail" aria-label="Navigation controls">
+        <a href="/" class="rail-brand" title="SmartTute Home">S</a>
+        <button class="menu-button" id="menuButton" aria-label="Open navigation menu" aria-expanded="false">
+            <i></i><i></i><i></i>
+        </button>
+        <div class="rail-bottom-actions">
+            <button class="rail-icon-button" id="themeToggle" aria-label="Switch theme" title="Toggle theme">☼</button>
+            <button class="account-button" id="accountButton" aria-label="Open user account"
+                title="Teacher Account">T</button>
+        </div>
+    </aside>
+
+    <!-- Side Navigation Menu -->
+    <div class="menu-backdrop" id="menuBackdrop"></div>
+    <nav class="side-menu" id="sideMenu" aria-label="Main navigation">
+        <div class="menu-brand">
+            <span>S</span>
+            <div><strong>SmartTute</strong><small>Interactive Workspace</small></div>
+            <button id="closeMenu" aria-label="Close menu">×</button>
+        </div>
+        <a href="/tute_lab/index.html">🛠️ <span>Tute Lab (Creator)</span></a>
+        <a href="/tute_library/index.html" class="active">📚 <span>Tute Library</span></a>
+        <a href="/live_class/index.html">🎥 <span>Live Class</span></a>
+        <div class="menu-footer">
+            <b>T</b>
+            <div><strong>Teacher Portal</strong><small>SmartTute Studio</small></div>
+        </div>
+    </nav>
+
+    <!-- Main Workspace Container -->
+    <main class="page library-page">
+        <!-- Top Control Bar -->
+        <header class="library-header">
+            <div class="header-titles">
+                <div class="title-badge"><i class="fa-solid fa-books"></i> Workspace Collection</div>
+                <h1>Tute Library</h1>
+                <p>Browse, organize, edit, and launch your interactive worksheets</p>
+            </div>
+            <div class="header-actions">
+                <button class="lib-btn lib-btn-primary" id="btnCreateNew">
+                    <i class="fa-solid fa-plus"></i> Create New Tute
+                </button>
+            </div>
+        </header>
+
+        <!-- Search & Filter Bar -->
+        <section class="library-toolbar">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="searchInput" placeholder="Search by title, subject, grade, or topic..." />
+                <button class="clear-search hidden" id="btnClearSearch"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="filter-controls">
+                <select id="sortSelect" class="lib-select">
+                    <option value="newest">Latest Updated</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="title">Title (A - Z)</option>
+                </select>
+                <div class="view-toggle">
+                    <button class="view-btn active" id="btnGridView" title="Grid View"><i
+                            class="fa-solid fa-border-all"></i></button>
+                    <button class="view-btn" id="btnListView" title="List View"><i
+                            class="fa-solid fa-list"></i></button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats Overview Bar -->
+        <div class="library-stats" id="libraryStats">
+            <div class="stat-pill"><span class="stat-num" id="statTotal">0</span> <span class="stat-lbl">Total
+                    Tutes</span></div>
+            <div class="stat-pill"><span class="stat-num" id="statQuestions">0</span> <span class="stat-lbl">Total
+                    Questions</span></div>
+        </div>
+
+        <!-- Tute Card Grid / List Container -->
+        <section class="tute-grid" id="tuteGrid">
+            <!-- Loading Skeleton -->
+            <div class="loading-state" id="loadingState">
+                <div class="spinner"></div>
+                <p>Loading your worksheets...</p>
+            </div>
+        </section>
+
+        <!-- Empty State View -->
+        <div class="empty-state hidden" id="emptyState">
+            <div class="empty-icon"><i class="fa-solid fa-folder-open"></i></div>
+            <h3>No Tutes Found</h3>
+            <p id="emptyMessage">You haven't saved any interactive worksheets yet.</p>
+            <button class="lib-btn lib-btn-primary" onclick="window.location.href='/tute_lab/index.html'">
+                <i class="fa-solid fa-pen-to-square"></i> Open Tute Creator
+            </button>
+        </div>
+    </main>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-backdrop hidden" id="deleteModal">
+        <div class="modal-card">
+            <div class="modal-icon danger"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <h3>Delete Worksheet?</h3>
+            <p>Are you sure you want to delete "<strong id="deleteTuteTitle"></strong>"? This action cannot be undone.
+            </p>
+            <div class="modal-actions">
+                <button class="lib-btn lib-btn-ghost" id="btnCancelDelete">Cancel</button>
+                <button class="lib-btn lib-btn-danger" id="btnConfirmDelete">Delete Worksheet</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script src="/tute_library/app.js"></script>
+</body>
+
+</html>
