@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SmartTute Class Organizer - Build, organize, and publish interactive video live classes.">
+    <title>SmartTute | Class Organizer Studio</title>
+
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Global Master Stylesheet -->
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body class="organizer-body">
+    <!-- Navigation Rail -->
+    <aside class="left-rail" aria-label="Navigation controls">
+        <a href="/" class="rail-brand" title="SmartTute Home">S</a>
+        <button class="menu-button" id="menuButton" aria-label="Open navigation menu" aria-expanded="false">
+            <i></i><i></i><i></i>
+        </button>
+        <div class="rail-bottom-actions">
+            <button class="rail-icon-button" id="themeToggle" aria-label="Switch theme" title="Toggle theme">☼</button>
+            <button class="account-button" id="accountButton" aria-label="Open user account" title="Teacher Account">T</button>
+        </div>
+    </aside>
+
+    <!-- Side Menu -->
+    <div class="menu-backdrop" id="menuBackdrop"></div>
+    <nav class="side-menu" id="sideMenu" aria-label="Main navigation">
+        <div class="menu-brand">
+            <span>S</span>
+            <div><strong>SmartTute</strong><small>Class Organizer</small></div>
+            <button id="closeMenu" aria-label="Close menu">×</button>
+        </div>
+        <a href="/class_organizer/index.html" class="active">🎬 <span>Class Organizer</span></a>
+        <a href="/tute_lab/index.html">🛠️ <span>Tute Creator (Lab)</span></a>
+        <a href="/tute_library/index.html">📚 <span>Tute Library</span></a>
+        <a href="/live_class/index.html">🎥 <span>Live Class</span></a>
+        <div class="menu-footer">
+            <b>T</b>
+            <div><strong>Teacher Admin</strong><small>SmartTute Studio</small></div>
+        </div>
+    </nav>
+
+    <!-- Main Studio Workspace -->
+    <main class="organizer-studio">
+        <!-- Top App Bar -->
+        <header class="studio-header">
+            <div class="header-left">
+                <a href="/tute_library/index.html" class="btn-back" title="Back to Library"><i class="fa-solid fa-arrow-left"></i></a>
+                <div class="title-wrap">
+                    <input type="text" id="classTitleInput" class="class-title-input" value="Untitled Interactive Class" placeholder="Class Title..." />
+                    <span class="studio-tag"><i class="fa-solid fa-sliders"></i> Class Studio</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="org-btn org-btn-secondary" id="btnPreviewToggle">
+                    <i class="fa-solid fa-play"></i> Test Run
+                </button>
+                <button class="org-btn org-btn-primary" id="btnPublishClass">
+                    <i class="fa-solid fa-paper-plane"></i> Publish Class
+                </button>
+            </div>
+        </header>
+
+        <!-- Studio Body Layout (3 Column Top Area) -->
+        <div class="studio-grid">
+            <!-- 1. TOOLBOX (Top Left Section) -->
+            <section class="studio-panel toolbox-panel">
+                <div class="panel-header">
+                    <h3><i class="fa-solid fa-toolbox"></i> Toolbox</h3>
+                </div>
+                <div class="panel-body">
+                    <!-- Media Tool Block -->
+                    <div class="tool-group">
+                        <label class="tool-label"><i class="fa-brands fa-youtube text-red"></i> YouTube Video Link</label>
+                        <div class="input-with-button">
+                            <input type="text" id="ytUrlInput" placeholder="Paste YouTube URL..." value="https://www.youtube.com/watch?v=M7lc1UVf-VE" />
+                            <button id="btnLoadYt" class="tool-btn" title="Load Video"><i class="fa-solid fa-arrow-right"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Tute Import Block -->
+                    <div class="tool-group">
+                        <label class="tool-label"><i class="fa-solid fa-file-import text-blue"></i> Import Tute Worksheet</label>
+                        <select id="tuteSelect" class="tool-select">
+                            <option value="">-- Choose a Tute from Library --</option>
+                        </select>
+                    </div>
+
+                    <!-- Draggable Questions List -->
+                    <div class="tool-group">
+                        <label class="tool-label"><i class="fa-solid fa-layer-group text-purple"></i> Question Items</label>
+                        <div class="questions-drag-list" id="questionsDragList">
+                            <div class="drag-hint">Select a Tute above to load interactive questions</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. WORKPLACE (Top Center Section) -->
+            <section class="studio-panel workplace-panel">
+                <div class="panel-header">
+                    <h3><i class="fa-solid fa-layer-group"></i> Workplace</h3>
+                    <span class="active-item-badge" id="activeItemBadge">No item selected</span>
+                </div>
+                <div class="panel-body">
+                    <!-- Item Inspector / Configurator -->
+                    <div class="inspector-card" id="inspectorCard">
+                        <div class="inspector-empty" id="inspectorEmpty">
+                            <i class="fa-solid fa-hand-pointer"></i>
+                            <p>Click or drag a question checkpoint from the timeline or toolbox to edit properties.</p>
+                        </div>
+
+                        <div class="inspector-form hidden" id="inspectorForm">
+                            <h4><i class="fa-solid fa-sliders"></i> Checkpoint Settings</h4>
+
+                            <div class="form-field">
+                                <label>Target Question</label>
+                                <select id="cpQuestionSelect" class="tool-select"></select>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-field">
+                                    <label>Trigger Time (Seconds)</label>
+                                    <input type="number" id="cpTimeInput" min="0" value="30" />
+                                </div>
+                                <div class="form-field">
+                                    <label>Time Limit (Sec)</label>
+                                    <input type="number" id="cpDurationInput" min="5" value="60" />
+                                </div>
+                            </div>
+
+                            <div class="form-field checkbox-field">
+                                <label class="switch">
+                                    <input type="checkbox" id="cpPauseToggle" checked />
+                                    <span class="slider round"></span>
+                                </label>
+                                <span>Pause YouTube video when question triggers</span>
+                            </div>
+
+                            <div class="inspector-actions">
+                                <button class="org-btn org-btn-danger btn-sm" id="btnDeleteCheckpoint">
+                                    <i class="fa-solid fa-trash"></i> Remove Checkpoint
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. PREVIEW (Top Right Section) -->
+            <section class="studio-panel preview-panel">
+                <div class="panel-header">
+                    <h3><i class="fa-solid fa-desktop"></i> Live Class Preview</h3>
+                    <span class="live-indicator"><i class="fa-solid fa-circle blink"></i> Live Simulation</span>
+                </div>
+                <div class="panel-body preview-body">
+                    <div class="preview-player-wrap">
+                        <div id="previewYoutubePlayer"></div>
+                        
+                        <!-- Overlay Question Box Simulation -->
+                        <div class="preview-q-overlay hidden" id="previewQOverlay">
+                            <div class="q-card">
+                                <span class="q-badge" id="previewQBadge">Checkpoint Question</span>
+                                <h4 id="previewQTitle">Question Title</h4>
+                                <div class="q-options" id="previewQOptions"></div>
+                                <button class="org-btn org-btn-primary btn-sm" id="btnResumePreview">Continue Video</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- 4. TIMELINE (Full Bottom Section) -->
+        <section class="timeline-container">
+            <div class="timeline-header">
+                <div class="timeline-controls">
+                    <button class="timeline-btn" id="btnTlPlay" title="Play Preview"><i class="fa-solid fa-play"></i></button>
+                    <button class="timeline-btn" id="btnTlPause" title="Pause Preview"><i class="fa-solid fa-pause"></i></button>
+                    <span class="time-display" id="timeDisplay">00:00 / 00:00</span>
+                </div>
+                <div class="timeline-title"><i class="fa-solid fa-timeline"></i> Timeline Sequence Track</div>
+            </div>
+
+            <div class="timeline-viewport" id="timelineViewport">
+                <!-- Ruler Track -->
+                <div class="timeline-ruler" id="timelineRuler"></div>
+
+                <!-- Playhead Scrub Line -->
+                <div class="timeline-playhead" id="timelinePlayhead"></div>
+
+                <!-- Track 1: YouTube Video Track -->
+                <div class="timeline-track track-video">
+                    <div class="track-label"><i class="fa-brands fa-youtube"></i> Video</div>
+                    <div class="track-content" id="videoTrackContent">
+                        <div class="track-block block-video" id="videoBlock">
+                            <span id="videoBlockLabel">YouTube Video</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Track 2: Question Checkpoints Track -->
+                <div class="timeline-track track-questions">
+                    <div class="track-label"><i class="fa-solid fa-circle-question"></i> Checkpoints</div>
+                    <div class="track-content" id="questionsTrackContent">
+                        <!-- Dynamic Checkpoint Markers -->
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Publish Success Modal -->
+    <div class="modal-backdrop hidden" id="publishModal">
+        <div class="modal-card modal-lg">
+            <div class="modal-icon success"><i class="fa-solid fa-circle-check"></i></div>
+            <h3>Class Published Successfully!</h3>
+            <p>Your interactive live class is live and ready for students.</p>
+
+            <div class="publish-details">
+                <div class="qr-wrap">
+                    <img id="publishQrImage" src="" alt="Class QR Code" />
+                </div>
+                <div class="share-info">
+                    <div class="share-group">
+                        <label>Shareable Class ID</label>
+                        <div class="copy-input">
+                            <input type="text" id="shareClassId" readonly />
+                            <button id="btnCopyId" title="Copy Class ID"><i class="fa-solid fa-copy"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="share-group">
+                        <label>Direct Student Link</label>
+                        <div class="copy-input">
+                            <input type="text" id="shareClassUrl" readonly />
+                            <button id="btnCopyUrl" title="Copy Student Link"><i class="fa-solid fa-copy"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="org-btn org-btn-secondary" id="btnClosePublishModal">Close</button>
+                <a href="#" id="btnOpenStudentView" target="_blank" class="org-btn org-btn-primary">
+                    <i class="fa-solid fa-external-link"></i> Launch Live Class
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application Script -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+    <script src="/class_organizer/app.js"></script>
+</body>
+</html>
