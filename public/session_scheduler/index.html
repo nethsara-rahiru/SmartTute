@@ -41,6 +41,7 @@
         <a href="/class_organizer/index.html">🎬 <span>Class Organizer</span></a>
         <a href="/class_library/index.html">🗂️ <span>Class Library</span></a>
         <a href="/session_scheduler/index.html" class="active">📅 <span>Session Scheduler</span></a>
+        <a href="/schedules/index.html">🗓️ <span>Class Schedules</span></a>
         <a href="/live_class/index.html">🎥 <span>Live Class</span></a>
         <div class="menu-footer">
             <b>T</b>
@@ -62,30 +63,52 @@
             </div>
         </header>
 
-        <div class="scheduler-layout">
-            <!-- Schedule form -->
+        <div class="scheduler-grid-layout">
+            <!-- Schedule Form Panel -->
             <section class="scheduler-panel schedule-form-panel">
                 <div class="panel-header">
-                    <h3><i class="fa-solid fa-sliders"></i> <span id="formHeading">Schedule a Session</span></h3>
-                    <button type="button" class="lib-btn lib-btn-ghost btn-sm hidden" id="btnNewSession">
-                        <i class="fa-solid fa-plus"></i> New
-                    </button>
+                    <div>
+                        <h3><i class="fa-solid fa-sliders"></i> <span id="formHeading">Schedule Live Session</span></h3>
+                        <p class="panel-sub">Configure time, join windows, and student experience</p>
+                    </div>
+                    <div class="panel-header-actions">
+                        <a href="/schedules/index.html" class="lib-btn lib-btn-ghost btn-sm">
+                            <i class="fa-solid fa-calendar-days"></i> Schedules
+                        </a>
+                        <button type="button" class="lib-btn lib-btn-ghost btn-sm hidden" id="btnNewSession">
+                            <i class="fa-solid fa-rotate-left"></i> Reset
+                        </button>
+                    </div>
                 </div>
 
                 <form id="sessionForm" class="schedule-form" autocomplete="off">
+                    <!-- Class Selector -->
                     <div class="form-field">
-                        <label for="classSelect"><i class="fa-solid fa-clapperboard"></i> Saved Class</label>
+                        <label for="classSelect"><i class="fa-solid fa-clapperboard"></i> Select Class Blueprint</label>
                         <select id="classSelect" class="tool-select" required>
-                            <option value="">-- Choose a saved class --</option>
+                            <option value="">-- Choose a saved class from library --</option>
                         </select>
-                        <p class="field-hint">Classes are saved from Class Organizer. <a href="/class_organizer/index.html">Save a class</a> first if the list is empty.</p>
+                        <p class="field-hint">Classes are created in Class Organizer. <a href="/class_organizer/index.html" target="_blank">Create new class <i class="fa-solid fa-arrow-up-right-from-square"></i></a></p>
                     </div>
 
+                    <!-- Session Title -->
                     <div class="form-field">
                         <label for="sessionTitleInput"><i class="fa-solid fa-heading"></i> Session Title</label>
-                        <input type="text" id="sessionTitleInput" placeholder="e.g. Monday Algebra Live" />
+                        <input type="text" id="sessionTitleInput" placeholder="e.g. Grade 11 Physics Live Revision" required />
                     </div>
 
+                    <!-- Quick Time Presets -->
+                    <div class="form-field">
+                        <label><i class="fa-solid fa-bolt"></i> Quick Time Presets</label>
+                        <div class="preset-pills">
+                            <button type="button" class="preset-pill" data-minutes="15">+15m</button>
+                            <button type="button" class="preset-pill" data-minutes="30">+30m</button>
+                            <button type="button" class="preset-pill" data-minutes="60">+1h</button>
+                            <button type="button" class="preset-pill" data-days="1">Tomorrow</button>
+                        </div>
+                    </div>
+
+                    <!-- Date & Time Row -->
                     <div class="form-row">
                         <div class="form-field">
                             <label for="startDateInput"><i class="fa-solid fa-calendar"></i> Date</label>
@@ -97,66 +120,91 @@
                         </div>
                     </div>
 
+                    <!-- Join Window -->
                     <div class="form-field">
-                        <label for="waitingPeriodInput"><i class="fa-solid fa-hourglass-half"></i> Waiting / Join Window (minutes)</label>
-                        <input type="number" id="waitingPeriodInput" min="1" max="180" value="15" required />
-                        <p class="field-hint">Students may join from session start until this many minutes after start. After that, joining is blocked.</p>
+                        <label for="waitingPeriodInput"><i class="fa-solid fa-hourglass-half"></i> Student Join Window</label>
+                        <div class="range-input-wrap">
+                            <input type="number" id="waitingPeriodInput" min="1" max="180" value="15" required />
+                            <span class="input-unit">minutes</span>
+                        </div>
+                        <p class="field-hint">Students can join up to this duration after session start time.</p>
                     </div>
 
+                    <!-- Playback Mode -->
                     <div class="form-field">
-                        <label class="block-label"><i class="fa-solid fa-timeline"></i> Student Playback Mode</label>
+                        <label class="block-label"><i class="fa-solid fa-timeline"></i> Student Video Playback Mode</label>
                         <div class="playback-options" role="radiogroup" aria-label="Playback mode">
                             <label class="playback-option">
                                 <input type="radio" name="playbackMode" value="from_start" checked />
                                 <span class="option-card">
-                                    <strong><i class="fa-solid fa-backward-step"></i> From the beginning</strong>
-                                    <small>Late joiners still start the video at 0:00 and work through checkpoints at their own pace.</small>
+                                    <strong><i class="fa-solid fa-backward-step"></i> Self-Paced (From 0:00)</strong>
+                                    <small>Late joiners start from the video start and progress at their own speed.</small>
                                 </span>
                             </label>
                             <label class="playback-option">
                                 <input type="radio" name="playbackMode" value="sync" />
                                 <span class="option-card">
-                                    <strong><i class="fa-solid fa-satellite-dish"></i> Sync with main class</strong>
-                                    <small>Student timers jump to the elapsed time since the session started so everyone stays aligned.</small>
+                                    <strong><i class="fa-solid fa-satellite-dish"></i> Live Synced</strong>
+                                    <small>Video timer jumps to current elapsed time so all students stay synchronized.</small>
                                 </span>
                             </label>
                         </div>
                     </div>
 
+                    <!-- Form Actions -->
                     <div class="form-actions">
-                        <button type="submit" class="lib-btn lib-btn-primary" id="btnPublishSession">
-                            <i class="fa-solid fa-paper-plane"></i> Publish Session
+                        <button type="submit" class="lib-btn lib-btn-primary btn-lg" id="btnPublishSession">
+                            <i class="fa-solid fa-paper-plane"></i> Publish &amp; Launch Session
                         </button>
                     </div>
                 </form>
             </section>
 
-            <!-- Sessions list -->
-            <section class="scheduler-panel sessions-list-panel">
-                <div class="panel-header">
-                    <h3><i class="fa-solid fa-list"></i> Scheduled Sessions</h3>
-                    <div class="library-stats compact-stats">
-                        <div class="stat-pill"><span class="stat-num" id="statSessions">0</span> <span class="stat-lbl">Sessions</span></div>
+            <!-- Preview & Class Info Card -->
+            <aside class="scheduler-preview-panel">
+                <div class="preview-card-sticky">
+                    <div class="preview-header">
+                        <span class="preview-badge"><i class="fa-solid fa-eye"></i> Class Preview</span>
+                        <span class="preview-status" id="previewStatus">Draft</span>
+                    </div>
+
+                    <div class="class-summary-box" id="classSummaryBox">
+                        <div class="summary-empty-state" id="summaryEmptyState">
+                            <i class="fa-solid fa-clapperboard"></i>
+                            <p>Select a saved class above to preview details</p>
+                        </div>
+
+                        <div class="summary-content hidden" id="summaryContent">
+                            <div class="summary-thumb-wrap">
+                                <img id="summaryThumb" src="" alt="Video thumbnail" />
+                                <span class="thumb-checkpoints" id="summaryCpCount"><i class="fa-solid fa-flag-checkered"></i> 0 Checkpoints</span>
+                            </div>
+                            <h4 id="summaryClassTitle">Class Title</h4>
+                            <p class="summary-meta-line" id="summaryTuteName"><i class="fa-solid fa-file-lines"></i> Tute Worksheet</p>
+                            
+                            <div class="summary-details-grid">
+                                <div class="sum-item">
+                                    <span class="sum-lbl">Start Time</span>
+                                    <span class="sum-val" id="summaryStartTime">--</span>
+                                </div>
+                                <div class="sum-item">
+                                    <span class="sum-lbl">Join Window</span>
+                                    <span class="sum-val" id="summaryJoinWindow">15 min</span>
+                                </div>
+                                <div class="sum-item">
+                                    <span class="sum-lbl">Mode</span>
+                                    <span class="sum-val" id="summaryMode">Self-Paced</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="preview-info-callout">
+                        <i class="fa-solid fa-lightbulb"></i>
+                        <p>After publishing, a unique <strong>Session ID</strong> and direct <strong>QR Join Link</strong> will be generated for immediate student distribution.</p>
                     </div>
                 </div>
-
-                <div class="sessions-toolbar">
-                    <div class="search-box">
-                        <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                        <input type="text" id="searchInput" placeholder="Search sessions…" />
-                    </div>
-                </div>
-
-                <div class="sessions-list" id="sessionsList">
-                    <!-- filled by app.js -->
-                </div>
-
-                <div class="empty-state hidden" id="emptyState">
-                    <div class="empty-icon"><i class="fa-solid fa-calendar-xmark"></i></div>
-                    <h3>No sessions yet</h3>
-                    <p id="emptyMessage">Schedule your first live session using a saved class from the form.</p>
-                </div>
-            </section>
+            </aside>
         </div>
     </main>
 

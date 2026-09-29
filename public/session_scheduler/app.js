@@ -85,11 +85,43 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(key, JSON.stringify(store));
     }
 
-    function loadClasses() {
-        const store = readJsonStore(CLASS_STORE_KEY);
-        classes = Object.values(store)
-            .filter((c) => c && c.classId && String(c.classId).indexOf('ST-TEST-') !== 0)
-            .sort((a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0));
+    async function loadClasses() {
+        let localClasses = [];
+        try {
+            const raw = localStorage.getItem(CLASS_STORE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    localClasses = parsed;
+                } else if (typeof parsed === 'object' && parsed !== null) {
+                    localClasses = Object.values(parsed);
+                }
+            }
+        } catch (e) {
+            console.error('Error reading local class store:', e);
+        }
+
+        let apiClasses = [];
+        // Optional backend API endpoint reserved for future MongoDB sync
+
+        // Merge local and API classes by classId
+        const map = new Map();
+        [...localClasses, ...apiClasses].forEach((c) => {
+            if (c && (c.classId || c._id)) {
+                const id = c.classId || c._id;
+                if (String(id).indexOf('ST-TEST-') !== 0) {
+                    map.set(id, {
+                        ...c,
+                        classId: id
+                    });
+                }
+            }
+        });
+
+        classes = Array.from(map.values()).sort(
+            (a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0)
+        );
+
         populateClassSelect();
     }
 
@@ -102,29 +134,134 @@ document.addEventListener('DOMContentLoaded', () => {
     function populateClassSelect() {
         if (!classSelect) return;
         const preset = new URLSearchParams(window.location.search).get('classId') || classSelect.value;
-        classSelect.innerHTML = '<option value="">-- Choose a saved class --</option>';
+        classSelect.innerHTML = '<option value="">-- Select Class Blueprint --</option>';
+
+        if (classes.length === 0) {
+            // Provide informative option if no saved classes exist
+            const emptyOpt = document.createElement('option');
+            emptyOpt.value = "";
+            emptyOpt.disabled = true;
+            emptyOpt.textContent = "No saved classes found (Create one in Class Organizer)";
+            classSelect.appendChild(emptyOpt);
+            updatePreviewCard();
+            return;
+        }
+
         classes.forEach((c) => {
             const opt = document.createElement('option');
             opt.value = c.classId;
             const cp = Array.isArray(c.checkpoints) ? c.checkpoints.length : 0;
-            opt.textContent = (c.title || 'Untitled') + ' (' + c.classId + ' · ' + cp + ' cp)';
+            opt.textContent = (c.title || 'Untitled Class') + ' (' + c.classId + ' · ' + cp + ' checkpoints)';
             classSelect.appendChild(opt);
         });
+
         if (preset && classes.some((c) => c.classId === preset)) {
             classSelect.value = preset;
+            autofillTitleFromClass();
+        } else if (classes.length > 0) {
+            classSelect.value = classes[0].classId;
             autofillTitleFromClass();
         }
     }
 
-    function autofillTitleFromClass() {
-        if (!sessionTitleInput || sessionTitleInput.value.trim()) return;
+    const summaryEmptyState = document.getElementById('summaryEmptyState');
+    const summaryContent = document.getElementById('summaryContent');
+    const summaryThumb = document.getElementById('summaryThumb');
+    const summaryCpCount = document.getElementById('summaryCpCount');
+    const summaryClassTitle = document.getElementById('summaryClassTitle');
+    const summaryTuteName = document.getElementById('summaryTuteName');
+    const summaryStartTime = document.getElementById('summaryStartTime');
+    const summaryJoinWindow = document.getElementById('summaryJoinWindow');
+    const summaryMode = document.getElementById('summaryMode');
+    const previewStatus = document.getElementById('previewStatus');
+
+    function updatePreviewCard() {
         const cls = classes.find((c) => c.classId === classSelect.value);
-        if (cls) sessionTitleInput.value = cls.title || '';
+        if (!cls) {
+            if (summaryEmptyState) summaryEmptyState.classList.remove('hidden');
+            if (summaryContent) summaryContent.classList.add('hidden');
+            if (previewStatus) previewStatus.textContent = 'Draft';
+            return;
+        }
+
+        if (summaryEmptyState) summaryEmptyState.classList.add('hidden');
+        if (summaryContent) summaryContent.classList.remove('hidden');
+
+        if (summaryClassTitle) summaryClassTitle.textContent = cls.title || 'Untitled Class';
+        if (summaryTuteName) {
+            summaryTuteName.innerHTML = '<i class="fa-solid fa-file-lines"></i> ' + escapeHtml(cls.tuteTitle || 'Interactive Tute');
+        }
+
+        const cps = Array.isArray(cls.checkpoints) ? cls.checkpoints.length : 0;
+        if (summaryCpCount) summaryCpCount.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> ' + cps + ' Checkpoint' + (cps === 1 ? '' : 's');
+
+        const vid = cls.videoId || 'M7lc1UVf-VE';
+        if (summaryThumb) summaryThumb.src = 'https://img.youtube.com/vi/' + vid + '/hqdefault.jpg';
+
+        if (startDateInput && startTimeInput && startDateInput.value && startTimeInput.value) {
+            const dt = combineLocalDateTime(startDateInput.value, startTimeInput.value);
+            if (!isNaN(dt.getTime())) {
+                if (summaryStartTime) summaryStartTime.textContent = formatWhen(dt.toISOString());
+            }
+        }
+
+        if (summaryJoinWindow && waitingPeriodInput) {
+            summaryJoinWindow.textContent = (waitingPeriodInput.value || 15) + ' min';
+        }
+
+        if (summaryMode) {
+            summaryMode.textContent = getPlaybackMode() === 'sync' ? 'Live Synced' : 'Self-Paced';
+        }
+
+        if (previewStatus) previewStatus.textContent = editingSessionId ? 'Editing' : 'Ready';
+    }
+
+    function autofillTitleFromClass() {
+        const cls = classes.find((c) => c.classId === classSelect.value);
+        if (cls && sessionTitleInput && !sessionTitleInput.value.trim()) {
+            sessionTitleInput.value = cls.title || '';
+        }
+        updatePreviewCard();
     }
 
     if (classSelect) {
         classSelect.addEventListener('change', autofillTitleFromClass);
     }
+
+    if (startDateInput) startDateInput.addEventListener('change', updatePreviewCard);
+    if (startTimeInput) startTimeInput.addEventListener('change', updatePreviewCard);
+    if (waitingPeriodInput) waitingPeriodInput.addEventListener('input', updatePreviewCard);
+    document.querySelectorAll('input[name="playbackMode"]').forEach(r => r.addEventListener('change', updatePreviewCard));
+
+    /* Quick Presets */
+    document.querySelectorAll('.preset-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const addMin = Number(btn.dataset.minutes) || 0;
+            const addDays = Number(btn.dataset.days) || 0;
+
+            let base = new Date();
+            if (startDateInput.value && startTimeInput.value) {
+                const existing = combineLocalDateTime(startDateInput.value, startTimeInput.value);
+                if (!isNaN(existing.getTime())) base = existing;
+            }
+
+            if (addMin) base.setMinutes(base.getMinutes() + addMin);
+            if (addDays) base.setDate(base.getDate() + addDays);
+
+            if (startDateInput) {
+                const y = base.getFullYear();
+                const m = String(base.getMonth() + 1).padStart(2, '0');
+                const d = String(base.getDate()).padStart(2, '0');
+                startDateInput.value = y + '-' + m + '-' + d;
+            }
+            if (startTimeInput) {
+                startTimeInput.value =
+                    String(base.getHours()).padStart(2, '0') + ':' +
+                    String(base.getMinutes()).padStart(2, '0');
+            }
+            updatePreviewCard();
+        });
+    });
 
     function getPlaybackMode() {
         const checked = document.querySelector('input[name="playbackMode"]:checked');
@@ -149,7 +286,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function combineLocalDateTime(dateStr, timeStr) {
-        // Interpret as local time
         const [y, m, d] = dateStr.split('-').map(Number);
         const [hh, mm] = timeStr.split(':').map(Number);
         return new Date(y, m - 1, d, hh, mm || 0, 0, 0);
@@ -184,9 +320,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function resetForm() {
         editingSessionId = null;
-        if (formHeading) formHeading.textContent = 'Schedule a Session';
+        if (formHeading) formHeading.textContent = 'Schedule Live Session';
         if (btnPublishSession) {
-            btnPublishSession.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Publish Session';
+            btnPublishSession.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Publish &amp; Launch Session';
         }
         if (btnNewSession) btnNewSession.classList.add('hidden');
         if (sessionForm) sessionForm.reset();
@@ -196,13 +332,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const preset = new URLSearchParams(window.location.search).get('classId');
         if (preset && classSelect) classSelect.value = preset;
         autofillTitleFromClass();
+        updatePreviewCard();
     }
 
     function fillForm(session) {
         editingSessionId = session.sessionId;
         if (formHeading) formHeading.textContent = 'Edit Session';
         if (btnPublishSession) {
-            btnPublishSession.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update &amp; Publish';
+            btnPublishSession.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update &amp; Launch';
         }
         if (btnNewSession) btnNewSession.classList.remove('hidden');
 
@@ -225,6 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     String(start.getMinutes()).padStart(2, '0');
             }
         }
+        updatePreviewCard();
     }
 
     if (btnNewSession) btnNewSession.addEventListener('click', resetForm);

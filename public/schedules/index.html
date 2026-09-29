@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="SmartTute Schedules - Master calendar, upcoming live classes, active join links, and past session history.">
+    <title>SmartTute | Class Schedules</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body class="library-body schedules-body">
+    <!-- Navigation Rail -->
+    <aside class="left-rail" aria-label="Navigation controls">
+        <a href="/" class="rail-brand" title="SmartTute Home">S</a>
+        <button class="menu-button" id="menuButton" aria-label="Open navigation menu" aria-expanded="false">
+            <i></i><i></i><i></i>
+        </button>
+        <div class="rail-bottom-actions">
+            <button class="rail-icon-button" id="themeToggle" aria-label="Switch theme" title="Toggle theme">☼</button>
+            <button class="account-button" id="accountButton" aria-label="Open user account"
+                title="Teacher Account">T</button>
+        </div>
+    </aside>
+
+    <div class="menu-backdrop" id="menuBackdrop"></div>
+    <nav class="side-menu" id="sideMenu" aria-label="Main navigation">
+        <div class="menu-brand">
+            <span>S</span>
+            <div><strong>SmartTute</strong><small>Interactive Workspace</small></div>
+            <button id="closeMenu" aria-label="Close menu">×</button>
+        </div>
+        <a href="/tute_lab/index.html">🛠️ <span>Tute Lab (Creator)</span></a>
+        <a href="/tute_library/index.html">📚 <span>Tute Library</span></a>
+        <a href="/class_organizer/index.html">🎬 <span>Class Organizer</span></a>
+        <a href="/class_library/index.html">🗂️ <span>Class Library</span></a>
+        <a href="/session_scheduler/index.html">📅 <span>Session Scheduler</span></a>
+        <a href="/schedules/index.html" class="active">🗓️ <span>Class Schedules</span></a>
+        <a href="/session_dashboard/index.html">📊 <span>Session Dashboard</span></a>
+        <a href="/live_class/index.html">🎥 <span>Live Class</span></a>
+        <div class="menu-footer">
+            <b>T</b>
+            <div><strong>Teacher Portal</strong><small>SmartTute Studio</small></div>
+        </div>
+    </nav>
+
+    <main class="page library-page schedules-page">
+        <!-- Header -->
+        <header class="library-header">
+            <div class="header-titles">
+                <div class="title-badge"><i class="fa-solid fa-calendar-days"></i> Master Class Schedule</div>
+                <h1>Class Schedules &amp; Calendar</h1>
+                <p>View upcoming sessions, live join windows, and past class archives</p>
+            </div>
+            <div class="header-actions">
+                <a class="lib-btn lib-btn-primary" href="/session_scheduler/index.html">
+                    <i class="fa-solid fa-plus"></i> Schedule New Session
+                </a>
+            </div>
+        </header>
+
+        <!-- View Controls & Filters -->
+        <section class="library-toolbar schedules-toolbar">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="searchInput" placeholder="Search by session title, ID, or class name…" />
+            </div>
+
+            <div class="filter-controls">
+                <div class="tab-group">
+                    <button type="button" class="tab-btn active" data-tab="all">All Sessions</button>
+                    <button type="button" class="tab-btn" data-tab="upcoming">Upcoming</button>
+                    <button type="button" class="tab-btn" data-tab="open">Join Open</button>
+                    <button type="button" class="tab-btn" data-tab="past">Past / Closed</button>
+                </div>
+                <div class="view-toggle">
+                    <button type="button" class="view-btn active" id="btnListView" title="List View"><i class="fa-solid fa-list"></i></button>
+                    <button type="button" class="view-btn" id="btnCalendarView" title="Calendar View"><i class="fa-solid fa-calendar-days"></i></button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats Overview -->
+        <div class="library-stats" id="scheduleStats">
+            <div class="stat-pill"><span class="stat-num" id="statTotal">0</span> <span class="stat-lbl">Total Scheduled</span></div>
+            <div class="stat-pill stat-upcoming"><span class="stat-num" id="statUpcoming">0</span> <span class="stat-lbl">Upcoming</span></div>
+            <div class="stat-pill stat-open"><span class="stat-num" id="statOpen">0</span> <span class="stat-lbl">Join Open</span></div>
+            <div class="stat-pill stat-past"><span class="stat-num" id="statPast">0</span> <span class="stat-lbl">Past / Closed</span></div>
+        </div>
+
+        <!-- List View Container -->
+        <section class="sessions-container" id="listViewContainer">
+            <div class="sessions-list" id="sessionsList"></div>
+        </section>
+
+        <!-- Calendar View Container -->
+        <section class="calendar-container hidden" id="calendarViewContainer">
+            <div class="calendar-header-bar">
+                <button type="button" class="lib-btn lib-btn-ghost btn-sm" id="btnPrevMonth"><i class="fa-solid fa-chevron-left"></i></button>
+                <h2 id="calendarMonthYear">September 2026</h2>
+                <button type="button" class="lib-btn lib-btn-ghost btn-sm" id="btnNextMonth"><i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+            <div class="calendar-grid" id="calendarGrid">
+                <!-- filled by app.js -->
+            </div>
+        </section>
+
+        <!-- Empty State View -->
+        <div class="empty-state hidden" id="emptyState">
+            <div class="empty-icon"><i class="fa-solid fa-calendar-xmark"></i></div>
+            <h3>No sessions found</h3>
+            <p id="emptyMessage">Schedule your first live session to see it on the schedule calendar.</p>
+            <a class="lib-btn lib-btn-primary" href="/session_scheduler/index.html">
+                <i class="fa-solid fa-plus"></i> Go to Session Scheduler
+            </a>
+        </div>
+    </main>
+
+    <!-- Share Modal -->
+    <div class="modal-backdrop hidden" id="shareModal">
+        <div class="modal-card modal-lg">
+            <div class="modal-icon success"><i class="fa-solid fa-circle-check"></i></div>
+            <h3 id="shareModalTitle">Share Session</h3>
+            <p id="shareModalCopy">Students can join with the Session ID or link below during the join window.</p>
+
+            <div class="publish-details">
+                <div class="qr-wrap">
+                    <img id="shareQrImage" src="" alt="Session QR Code" />
+                </div>
+                <div class="share-info" style="width:100%">
+                    <div class="share-group">
+                        <label>Session ID</label>
+                        <div class="copy-input">
+                            <input type="text" id="shareSessionId" readonly />
+                            <button type="button" id="btnCopySessionId" title="Copy Session ID"><i class="fa-solid fa-copy"></i></button>
+                        </div>
+                    </div>
+                    <div class="share-group">
+                        <label>Student Join Link</label>
+                        <div class="copy-input">
+                            <input type="text" id="shareSessionUrl" readonly />
+                            <button type="button" id="btnCopySessionUrl" title="Copy Link"><i class="fa-solid fa-copy"></i></button>
+                        </div>
+                    </div>
+                    <div class="share-meta" id="shareMeta"></div>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="lib-btn lib-btn-ghost" id="btnCloseShare">Close</button>
+                <a href="#" id="btnOpenLive" target="_blank" class="lib-btn lib-btn-primary">
+                    <i class="fa-solid fa-external-link"></i> Launch / Join Live Class
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Modal -->
+    <div class="modal-backdrop hidden" id="deleteModal">
+        <div class="modal-card">
+            <div class="modal-icon danger"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <h3>Delete Session?</h3>
+            <p>Remove “<strong id="deleteSessionTitle"></strong>”? Share links for this session will stop working.</p>
+            <div class="modal-actions">
+                <button class="lib-btn lib-btn-ghost" id="btnCancelDelete">Cancel</button>
+                <button class="lib-btn lib-btn-danger" id="btnConfirmDelete">Delete Session</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/schedules/app.js"></script>
+</body>
+
+</html>

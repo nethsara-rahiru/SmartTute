@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SmartTute Session Dashboard — Real-time live class monitoring for teachers. Track student participation, answers, and progress.">
+  <title>SmartTute | Live Session Dashboard</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Global Stylesheet (includes Session Dashboard styles) -->
+  <link rel="stylesheet" href="/style.css">
+
+</head>
+<body>
+
+  <!-- Navigation Rail -->
+  <aside class="left-rail" aria-label="Navigation controls">
+    <a href="/" class="rail-brand" title="SmartTute Home">S</a>
+    <button class="menu-button" id="menuButton" aria-label="Open navigation menu" aria-expanded="false">
+      <i></i><i></i><i></i>
+    </button>
+    <div class="rail-bottom-actions">
+      <button class="rail-icon-button" id="themeToggle" aria-label="Switch theme" title="Toggle theme">☼</button>
+      <button class="account-button" id="accountButton" aria-label="Teacher account" title="Teacher Account">T</button>
+    </div>
+  </aside>
+
+  <!-- Side Menu -->
+  <div class="menu-backdrop" id="menuBackdrop"></div>
+  <nav class="side-menu" id="sideMenu" aria-label="Main navigation">
+    <div class="menu-brand">
+      <span>S</span>
+      <div><strong>SmartTute</strong><small>Session Dashboard</small></div>
+      <button id="closeMenu" aria-label="Close menu">×</button>
+    </div>
+    <a href="/class_organizer/index.html">🎬 <span>Class Organizer</span></a>
+    <a href="/class_library/index.html">🗂️ <span>Class Library</span></a>
+    <a href="/session_scheduler/index.html">📅 <span>Session Scheduler</span></a>
+    <a href="/session_dashboard/index.html" class="active">📊 <span>Session Dashboard</span></a>
+    <a href="/tute_lab/index.html">🛠️ <span>Tute Creator (Lab)</span></a>
+    <a href="/tute_library/index.html">📚 <span>Tute Library</span></a>
+    <a href="/live_class/index.html">🎥 <span>Live Class</span></a>
+    <div class="menu-footer">
+      <b>T</b>
+      <div><strong>Teacher Admin</strong><small>SmartTute Studio</small></div>
+    </div>
+  </nav>
+
+  <!-- Main Dashboard -->
+  <main class="page dash-page" id="dashPage">
+
+    <!-- Session Picker (shown when no session loaded) -->
+    <div class="dash-gate" id="dashGate">
+      <div class="dash-gate-card">
+        <div class="dash-gate-icon"><i class="fa-solid fa-chart-line"></i></div>
+        <h1>Session Dashboard</h1>
+        <p>Select a session to monitor in real-time, or start Demo Mode to preview the full dashboard with simulated students.</p>
+        <div class="dash-gate-form">
+          <label for="sessionPickerSelect">Active Sessions</label>
+          <select id="sessionPickerSelect">
+            <option value="">-- Choose a Session --</option>
+          </select>
+          <button class="dash-btn dash-btn-primary" id="btnMonitorSession" disabled>
+            <i class="fa-solid fa-chart-line"></i> Monitor Session
+          </button>
+        </div>
+        <div class="dash-gate-divider"><span>or</span></div>
+        <button class="dash-btn dash-btn-demo" id="btnStartDemo">
+          <i class="fa-solid fa-flask"></i> Launch Demo Mode (25 simulated students)
+        </button>
+        <p class="dash-gate-hint">Demo Mode generates realistic live data so you can preview the full dashboard. No real session required.</p>
+      </div>
+    </div>
+
+    <!-- Dashboard Content (hidden until session loaded) -->
+    <div class="dash-content hidden" id="dashContent">
+
+      <!-- ── HEADER BAR ──────────────────────────────────────── -->
+      <header class="dash-header" id="dashHeader">
+        <div class="dash-header-left">
+          <div class="live-pill" id="livePill">
+            <span class="live-dot"></span>
+            <span id="liveLabel">LIVE</span>
+          </div>
+          <div class="dash-session-info">
+            <h1 id="sessionTitle">Loading session…</h1>
+            <div class="dash-session-meta">
+              <span id="sessionIdBadge" class="mono-badge"></span>
+              <span id="sessionTimeBadge"></span>
+            </div>
+          </div>
+        </div>
+        <div class="dash-header-right">
+          <div class="refresh-ring-wrap" title="Auto-refreshes every 3 seconds">
+            <svg class="refresh-ring" viewBox="0 0 36 36" aria-hidden="true">
+              <circle class="refresh-ring-track" cx="18" cy="18" r="15.9" />
+              <circle class="refresh-ring-fill" id="refreshRingFill" cx="18" cy="18" r="15.9" />
+            </svg>
+            <span class="refresh-icon"><i class="fa-solid fa-rotate"></i></span>
+          </div>
+          <span class="dash-last-updated" id="lastUpdated">—</span>
+          <button class="dash-btn dash-btn-sm dash-btn-demo" id="btnDemoToggle" title="Toggle Demo Mode">
+            <i class="fa-solid fa-flask"></i> Demo
+          </button>
+          <button class="dash-btn dash-btn-sm dash-btn-secondary" id="btnChangeSessions" title="Switch Session">
+            <i class="fa-solid fa-right-left"></i> Switch
+          </button>
+        </div>
+      </header>
+
+      <!-- Demo Mode Banner -->
+      <div class="demo-banner hidden" id="demoBanner">
+        <i class="fa-solid fa-flask"></i>
+        <strong>Demo Mode Active</strong> — Simulated data from 25 virtual students. Real session data will replace this automatically.
+        <button id="btnExitDemo"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <!-- ── KPI CARDS ────────────────────────────────────────── -->
+      <section class="kpi-grid" aria-label="Session summary statistics">
+        <div class="kpi-card kpi-students" id="kpiStudents">
+          <div class="kpi-icon"><i class="fa-solid fa-users"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpiStudentsVal">0</div>
+            <div class="kpi-label">Students Joined</div>
+            <div class="kpi-sub" id="kpiStudentsSub">0 active now</div>
+          </div>
+          <div class="kpi-trend" id="kpiStudentsTrend"></div>
+        </div>
+        <div class="kpi-card kpi-answered" id="kpiAnswered">
+          <div class="kpi-icon"><i class="fa-solid fa-pen-to-square"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpiAnsweredVal">0</div>
+            <div class="kpi-label">Answers Submitted</div>
+            <div class="kpi-sub" id="kpiAnsweredSub">0% completion rate</div>
+          </div>
+        </div>
+        <div class="kpi-card kpi-correct" id="kpiCorrect">
+          <div class="kpi-icon"><i class="fa-solid fa-circle-check"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpiCorrectVal">0</div>
+            <div class="kpi-label">Correct Answers</div>
+            <div class="kpi-sub" id="kpiCorrectSub">0% accuracy</div>
+          </div>
+          <div class="kpi-arc" id="kpiCorrectArc"></div>
+        </div>
+        <div class="kpi-card kpi-wrong" id="kpiWrong">
+          <div class="kpi-icon"><i class="fa-solid fa-circle-xmark"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpiWrongVal">0</div>
+            <div class="kpi-label">Wrong Answers</div>
+            <div class="kpi-sub" id="kpiWrongSub">0% of submitted</div>
+          </div>
+        </div>
+        <div class="kpi-card kpi-skipped" id="kpiSkipped">
+          <div class="kpi-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-value" id="kpiSkippedVal">0</div>
+            <div class="kpi-label">Not Answered</div>
+            <div class="kpi-sub" id="kpiSkippedSub">0% of total expected</div>
+          </div>
+        </div>
+        <div class="kpi-card kpi-time" id="kpiTime">
+          <div class="kpi-icon"><i class="fa-solid fa-stopwatch"></i></div>
+          <div class="kpi-body">
+            <div class="kpi-value mono" id="kpiTimeVal">—</div>
+            <div class="kpi-label">Avg. Time per Q</div>
+            <div class="kpi-sub" id="kpiTimeSub">across all checkpoints</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── CHECKPOINT TABS ──────────────────────────────────── -->
+      <section class="dash-section" aria-label="Checkpoint filter">
+        <div class="cp-tabs-bar" id="cpTabsBar" role="tablist">
+          <button class="cp-tab active" id="cpTabAll" role="tab" aria-selected="true" data-cp="all">
+            <i class="fa-solid fa-layer-group"></i> All Checkpoints
+          </button>
+          <!-- Dynamic checkpoint tabs injected here -->
+        </div>
+      </section>
+
+      <!-- ── CHARTS ROW ────────────────────────────────────────── -->
+      <section class="charts-grid" aria-label="Analytics charts">
+        <!-- Chart A: Answer Status Donut -->
+        <div class="chart-card chart-donut-card">
+          <div class="chart-header">
+            <h2><i class="fa-solid fa-chart-pie"></i> Answer Breakdown</h2>
+            <span class="chart-subtitle" id="donutSubtitle">All checkpoints</span>
+          </div>
+          <div class="donut-wrap">
+            <canvas id="donutChart" width="200" height="200" aria-label="Answer breakdown donut chart"></canvas>
+            <div class="donut-center">
+              <span class="donut-total" id="donutTotal">0</span>
+              <span class="donut-label">responses</span>
+            </div>
+          </div>
+          <div class="donut-legend">
+            <div class="legend-item legend-correct"><span class="legend-dot"></span><span id="legendCorrectPct">0%</span> Correct</div>
+            <div class="legend-item legend-wrong"><span class="legend-dot"></span><span id="legendWrongPct">0%</span> Wrong</div>
+            <div class="legend-item legend-skip"><span class="legend-dot"></span><span id="legendSkipPct">0%</span> Not Answered</div>
+          </div>
+        </div>
+
+        <!-- Chart B: Response Time Distribution -->
+        <div class="chart-card chart-bar-card">
+          <div class="chart-header">
+            <h2><i class="fa-solid fa-chart-bar"></i> Response Time Distribution</h2>
+            <span class="chart-subtitle">Time taken to submit answers</span>
+          </div>
+          <canvas id="barChart" width="400" height="220" aria-label="Response time histogram"></canvas>
+          <div class="bar-labels">
+            <span>0–15s</span><span>15–30s</span><span>30–60s</span><span>60–120s</span><span>120s+</span>
+          </div>
+        </div>
+
+        <!-- Chart C: Per-Checkpoint Stacked Bars -->
+        <div class="chart-card chart-stacked-card">
+          <div class="chart-header">
+            <h2><i class="fa-solid fa-chart-gantt"></i> Progress per Checkpoint</h2>
+            <span class="chart-subtitle">Correct · Wrong · Not Answered</span>
+          </div>
+          <div class="stacked-bars" id="stackedBars">
+            <!-- Dynamic rows injected -->
+            <div class="stacked-empty">No checkpoints yet</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── STUDENT ROSTER ────────────────────────────────────── -->
+      <section class="dash-section roster-section" aria-label="Student roster">
+        <div class="roster-header">
+          <h2><i class="fa-solid fa-users-rectangle"></i> Student Roster</h2>
+          <div class="roster-controls">
+            <div class="search-wrap">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="search" id="rosterSearch" placeholder="Search students…" aria-label="Search students">
+            </div>
+            <select id="rosterSort" aria-label="Sort roster">
+              <option value="joined">Sort: Joined Time</option>
+              <option value="name">Sort: Name</option>
+              <option value="correct">Sort: Most Correct</option>
+              <option value="wrong">Sort: Most Wrong</option>
+              <option value="progress">Sort: Progress</option>
+              <option value="time">Sort: Avg Time</option>
+            </select>
+            <button class="dash-btn dash-btn-sm dash-btn-secondary" id="btnExpandAll" title="Expand all rows">
+              <i class="fa-solid fa-expand"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="roster-table-wrap">
+          <table class="roster-table" id="rosterTable" aria-label="Student progress table">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Student</th>
+                <th scope="col">Status</th>
+                <th scope="col">Progress</th>
+                <th scope="col" class="text-right">✅ Correct</th>
+                <th scope="col" class="text-right">❌ Wrong</th>
+                <th scope="col" class="text-right">⬜ Skipped</th>
+                <th scope="col" class="text-right mono">⏱ Avg Time</th>
+                <th scope="col">Checkpoints</th>
+              </tr>
+            </thead>
+            <tbody id="rosterBody">
+              <tr class="roster-empty-row">
+                <td colspan="9">
+                  <div class="roster-empty">
+                    <i class="fa-solid fa-user-slash"></i>
+                    <p>No students have joined yet.</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="roster-footer" id="rosterFooter">Showing 0 students</div>
+      </section>
+
+    </div><!-- /.dash-content -->
+  </main>
+
+  <script src="/session_dashboard/script.js"></script>
+</body>
+</html>
