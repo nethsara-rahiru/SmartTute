@@ -15,6 +15,11 @@
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
+  <!-- KaTeX (same as Tute Lab) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
   <!-- Global Stylesheet -->
   <link rel="stylesheet" href="/style.css">
 </head>
@@ -43,13 +48,38 @@
     <a href="/live_class/index.html" class="active">🎥 <span>Live Class</span></a>
     <a href="/tute_library/index.html">📚 <span>Tute Library</span></a>
     <a href="/class_organizer/index.html">🎬 <span>Class Organizer</span></a>
+    <a href="/class_library/index.html">🗂️ <span>Class Library</span></a>
+    <a href="/session_scheduler/index.html">📅 <span>Session Scheduler</span></a>
     <a href="/tute_lab/index.html">🛠️ <span>Tute Creator (Lab)</span></a>
     <div class="menu-footer"><b>A</b>
       <div><strong>Student</strong><small>Grade 10</small></div>
     </div>
   </nav>
 
-  <main class="page">
+  <!-- Class / Session code gate -->
+  <div class="class-code-gate" id="classCodeGate">
+    <div class="class-code-card">
+      <div class="class-code-icon"><i class="fa-solid fa-key"></i></div>
+      <h1>Enter session or class code</h1>
+      <p>Ask your teacher for the Session ID (or Class ID), then enter it below to join.</p>
+      <form id="classCodeForm" class="class-code-form" autocomplete="off">
+        <label for="classCodeInput">Session / Class ID</label>
+        <input id="classCodeInput" type="text" placeholder="e.g. ST-SESSION-1234" required spellcheck="false" />
+        <p class="class-code-error hidden" id="classCodeError" role="alert"></p>
+        <button type="submit" class="continue-button class-code-submit">Join Live Class</button>
+      </form>
+      <p class="class-code-hint">Teachers publish sessions from the <a href="/session_scheduler/index.html">Session Scheduler</a>.</p>
+    </div>
+  </div>
+
+  <main class="page hidden" id="liveClassPage">
+    <header class="live-class-banner" id="liveClassBanner">
+      <div class="live-class-banner-inner">
+        <span class="live-class-pill"><i class="fa-solid fa-circle blink"></i> Live Class</span>
+        <h1 id="liveClassTitle">Interactive Lesson</h1>
+        <p id="liveClassMeta">Loading class instructions…</p>
+      </div>
+    </header>
 
     <section class="lesson-layout">
       <div class="lesson-content">
@@ -58,7 +88,7 @@
           <div class="iframe-click-blocker" aria-hidden="true"></div>
           <div class="video-loader" id="videoLoader" role="status" aria-live="polite">
             <span class="spinner" aria-hidden="true"></span>
-            <span>Loading lesson video…</span>
+            <span id="videoLoaderText">Loading lesson video…</span>
           </div>
           <aside class="chat-panel" id="chatPanel" aria-label="Lesson chat">
             <div class="chat-header"><strong>Class chat</strong><button id="closeChat"
@@ -71,27 +101,50 @@
           </aside>
         </div>
 
-        <section class="question-box hidden" id="questionBox" aria-live="polite">
+        <section class="question-box" id="questionBox" aria-live="polite">
           <div class="waiting-question" id="waitingQuestion">
             <div class="question-icon">?</div>
             <div>
-              <h2>Questions will appear here</h2>
-              <p>Continue watching. The video pauses when it reaches a checkpoint.</p>
+              <h2 id="waitingHeading">Questions will appear here</h2>
+              <p id="waitingCopy">Continue watching. Only the checkpoint question selected in Class Organizer will appear here — one at a time.</p>
             </div>
           </div>
 
+          <!-- Single selected tute question (matches tuteModule QuestionSchema) -->
           <div class="active-question hidden" id="activeQuestion">
-            <div class="question-topline"><span></span><span id="questionCount"></span></div>
-            <h2 id="questionTitle">Quick check</h2>
-            <p id="questionText"></p>
-            <div class="answers" id="answers"></div>
+            <div class="question-topline">
+              <span id="questionTimer" class="question-timer" aria-live="polite"></span>
+              <span id="questionCount"></span>
+            </div>
+
+            <div class="live-tute-question rendered-q-block" id="liveTuteQuestion">
+              <div class="rendered-q-header">
+                <div class="rendered-q-title">
+                  <span class="q-badge-num" id="liveQBadge">Question</span>
+                  <span id="questionTitle">Quick check</span>
+                </div>
+                <span class="rendered-q-marks" id="questionMarks"></span>
+              </div>
+              <div class="rendered-latex-body" id="questionBody"></div>
+            </div>
+
+            <!-- MCQ fallback (legacy) -->
+            <div class="answers hidden" id="answers"></div>
+
             <p class="feedback" id="feedback"></p>
-            <button class="continue-button" id="continueButton" disabled>Choose an answer to continue</button>
+            <button class="continue-button" id="continueButton" disabled>Submit answers to continue</button>
           </div>
         </section>
+
+        <div class="class-missing hidden" id="classMissing">
+          <h2>Class not found</h2>
+          <p id="classMissingCopy">That Class ID is not saved in this browser. Ask your teacher to publish again, or re-enter the code.</p>
+          <button type="button" class="continue-button" id="btnReenterCode">Enter a different code</button>
+        </div>
       </div>
     </section>
   </main>
+  <script src="/shared/inkFigure.js"></script>
   <script src="script.js"></script>
 </body>
 

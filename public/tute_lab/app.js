@@ -401,6 +401,11 @@ Answer: $n(A \\cup B) =$ {{answer2}}.`,
             paperSolutionsList.appendChild(solItem);
         });
 
+        // White paper → transparent; dark mode invert via CSS .ink-figure
+        if (window.SmartTuteInkFigure) {
+            window.SmartTuteInkFigure.enhanceTuteFigures(paperQuestionsList);
+        }
+
         // Trigger KaTeX auto-render on the paper container (ignoring form inputs & diagram boxes)
         if (window.renderMathInElement) {
             try {
@@ -1311,6 +1316,12 @@ Answer: $n(A \\cup B) =$ {{answer2}}.`,
 
                 if (response.ok && result.success) {
                     tuteData._id = result.data._id;
+                    // Keep the editor URL tied to this worksheet so refresh/edit stays on it
+                    const url = new URL(window.location.href);
+                    if (url.searchParams.get('id') !== String(tuteData._id)) {
+                        url.searchParams.set('id', tuteData._id);
+                        window.history.replaceState({}, '', url);
+                    }
                     btnSaveDb.innerHTML = `<i class="fa-solid fa-check"></i> Saved!`;
                     setTimeout(() => {
                         btnSaveDb.disabled = false;
@@ -1927,6 +1938,77 @@ Answer: $n(A \\cup B) =$ {{answer2}}.`,
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
-    // Initial Launch
-    renderApp();
+    function mapLikeToObject(value) {
+        if (!value) return {};
+        if (value instanceof Map) return Object.fromEntries(value);
+        if (typeof value === 'object') return value;
+        return {};
+    }
+
+    function normalizeLoadedTute(raw) {
+        if (!raw || typeof raw !== 'object') return null;
+        return {
+            _id: raw._id,
+            title: raw.title || 'Untitled Tute',
+            grade: raw.grade || 'Grade 11 (O/L)',
+            term: raw.term || 'Term 1',
+            subject: raw.subject || 'Mathematics',
+            totalMarks: raw.totalMarks || 0,
+            questions: Array.isArray(raw.questions)
+                ? raw.questions.map((q, idx) => ({
+                    id: q.id || ('q' + (idx + 1)),
+                    title: q.title || ('Question ' + (idx + 1)),
+                    marks: Number(q.marks) || 10,
+                    latex: q.latex || '',
+                    answers: mapLikeToObject(q.answers),
+                    images: mapLikeToObject(q.images)
+                }))
+                : []
+        };
+    }
+
+    async function loadTuteFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const tuteId = params.get('id') || params.get('tuteId') || '';
+        if (!tuteId) return false;
+
+        try {
+            const response = await fetch('/api/tutes/' + encodeURIComponent(tuteId));
+            const result = await response.json();
+            if (!response.ok || !result.success || !result.data) {
+                throw new Error((result && result.error) || 'Tute not found');
+            }
+
+            const loaded = normalizeLoadedTute(result.data);
+            if (!loaded || !loaded.questions.length) {
+                // Still open empty shell of the saved tute rather than the demo template
+                tuteData = loaded || tuteData;
+                if (!tuteData.questions || !tuteData.questions.length) {
+                    tuteData.questions = [{
+                        id: 'q1',
+                        title: 'New Question',
+                        marks: 10,
+                        latex: '',
+                        answers: {},
+                        images: {}
+                    }];
+                }
+            } else {
+                tuteData = loaded;
+            }
+
+            activeQuestionIndex = 0;
+            return true;
+        } catch (err) {
+            console.error('Failed to load tute for edit:', err);
+            alert('Could not open that worksheet for editing.\n' + err.message + '\n\nStarting a blank editor instead.');
+            return false;
+        }
+    }
+
+    // Initial Launch — open existing tute when Library sends ?id=
+    (async () => {
+        await loadTuteFromUrl();
+        renderApp();
+    })();
 });

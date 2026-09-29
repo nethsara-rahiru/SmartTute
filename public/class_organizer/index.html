@@ -37,6 +37,8 @@
             <button id="closeMenu" aria-label="Close menu">×</button>
         </div>
         <a href="/class_organizer/index.html" class="active">🎬 <span>Class Organizer</span></a>
+        <a href="/class_library/index.html">🗂️ <span>Class Library</span></a>
+        <a href="/session_scheduler/index.html">📅 <span>Session Scheduler</span></a>
         <a href="/tute_lab/index.html">🛠️ <span>Tute Creator (Lab)</span></a>
         <a href="/tute_library/index.html">📚 <span>Tute Library</span></a>
         <a href="/live_class/index.html">🎥 <span>Live Class</span></a>
@@ -62,8 +64,11 @@
                     <i class="fa-solid fa-play"></i> Test Run
                 </button>
                 <button class="org-btn org-btn-primary" id="btnPublishClass">
-                    <i class="fa-solid fa-paper-plane"></i> Publish Class
+                    <i class="fa-solid fa-floppy-disk"></i> Save
                 </button>
+                <a class="org-btn org-btn-secondary" id="btnScheduleSession" href="/session_scheduler/index.html" title="Schedule &amp; publish live session">
+                    <i class="fa-solid fa-calendar-days"></i> Schedule
+                </a>
             </div>
         </header>
 
@@ -216,40 +221,29 @@
         </section>
     </main>
 
-    <!-- Publish Success Modal -->
+    /* Publish Success Modal → now "Saved" confirmation with schedule CTA */
     <div class="modal-backdrop hidden" id="publishModal">
         <div class="modal-card modal-lg">
-            <div class="modal-icon success"><i class="fa-solid fa-circle-check"></i></div>
-            <h3>Class Published Successfully!</h3>
-            <p>Your interactive live class is live and ready for students.</p>
+            <div class="modal-icon success"><i class="fa-solid fa-floppy-disk"></i></div>
+            <h3>Class Saved</h3>
+            <p>Your interactive class is stored in the Class Library. Schedule a live session to publish and share with students.</p>
 
             <div class="publish-details">
-                <div class="qr-wrap">
-                    <img id="publishQrImage" src="" alt="Class QR Code" />
-                </div>
-                <div class="share-info">
+                <div class="share-info" style="width:100%">
                     <div class="share-group">
-                        <label>Shareable Class ID</label>
+                        <label>Saved Class ID</label>
                         <div class="copy-input">
                             <input type="text" id="shareClassId" readonly />
                             <button id="btnCopyId" title="Copy Class ID"><i class="fa-solid fa-copy"></i></button>
-                        </div>
-                    </div>
-
-                    <div class="share-group">
-                        <label>Direct Student Link</label>
-                        <div class="copy-input">
-                            <input type="text" id="shareClassUrl" readonly />
-                            <button id="btnCopyUrl" title="Copy Student Link"><i class="fa-solid fa-copy"></i></button>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div class="modal-actions">
-                <button class="org-btn org-btn-secondary" id="btnClosePublishModal">Close</button>
-                <a href="#" id="btnOpenStudentView" target="_blank" class="org-btn org-btn-primary">
-                    <i class="fa-solid fa-external-link"></i> Launch Live Class
+                <button class="org-btn org-btn-secondary" id="btnClosePublishModal">Keep Editing</button>
+                <a href="/session_scheduler/index.html" id="btnOpenStudentView" class="org-btn org-btn-primary">
+                    <i class="fa-solid fa-calendar-days"></i> Schedule &amp; Publish Session
                 </a>
             </div>
         </div>

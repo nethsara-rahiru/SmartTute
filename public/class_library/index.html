@@ -5,8 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
-        content="SmartTute Tute Library - Browse, manage, edit, preview, and delete your interactive tutorial worksheets.">
-    <title>SmartTute | Tute Library</title>
+        content="SmartTute Class Library - Browse, launch, share, and manage your published interactive live classes.">
+    <title>SmartTute | Class Library</title>
 
     <!-- Google Fonts & FontAwesome -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42,9 +42,9 @@
             <button id="closeMenu" aria-label="Close menu">×</button>
         </div>
         <a href="/tute_lab/index.html">🛠️ <span>Tute Lab (Creator)</span></a>
-        <a href="/tute_library/index.html" class="active">📚 <span>Tute Library</span></a>
+        <a href="/tute_library/index.html">📚 <span>Tute Library</span></a>
         <a href="/class_organizer/index.html">🎬 <span>Class Organizer</span></a>
-        <a href="/class_library/index.html">🗂️ <span>Class Library</span></a>
+        <a href="/class_library/index.html" class="active">🗂️ <span>Class Library</span></a>
         <a href="/session_scheduler/index.html">📅 <span>Session Scheduler</span></a>
         <a href="/live_class/index.html">🎥 <span>Live Class</span></a>
         <div class="menu-footer">
@@ -58,13 +58,13 @@
         <!-- Top Control Bar -->
         <header class="library-header">
             <div class="header-titles">
-                <div class="title-badge"><i class="fa-solid fa-books"></i> Workspace Collection</div>
-                <h1>Tute Library</h1>
-                <p>Browse, organize, edit, and launch your interactive worksheets</p>
+                <div class="title-badge"><i class="fa-solid fa-clapperboard"></i> Live Class Collection</div>
+                <h1>Class Library</h1>
+                <p>Browse, launch, share, and manage your published interactive classes</p>
             </div>
             <div class="header-actions">
                 <button class="lib-btn lib-btn-primary" id="btnCreateNew">
-                    <i class="fa-solid fa-plus"></i> Create New Tute
+                    <i class="fa-solid fa-plus"></i> Create New Class
                 </button>
             </div>
         </header>
@@ -73,13 +73,13 @@
         <section class="library-toolbar">
             <div class="search-box">
                 <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                <input type="text" id="searchInput" placeholder="Search by title, subject, grade, or topic..." />
+                <input type="text" id="searchInput" placeholder="Search by title, class ID, or tute name..." />
                 <button class="clear-search hidden" id="btnClearSearch"><i class="fa-solid fa-xmark"></i></button>
             </div>
 
             <div class="filter-controls">
                 <select id="sortSelect" class="lib-select">
-                    <option value="newest">Latest Updated</option>
+                    <option value="newest">Latest Published</option>
                     <option value="oldest">Oldest First</option>
                     <option value="title">Title (A - Z)</option>
                 </select>
@@ -95,27 +95,26 @@
         <!-- Stats Overview Bar -->
         <div class="library-stats" id="libraryStats">
             <div class="stat-pill"><span class="stat-num" id="statTotal">0</span> <span class="stat-lbl">Total
-                    Tutes</span></div>
-            <div class="stat-pill"><span class="stat-num" id="statQuestions">0</span> <span class="stat-lbl">Total
-                    Questions</span></div>
+                    Classes</span></div>
+            <div class="stat-pill"><span class="stat-num" id="statCheckpoints">0</span> <span class="stat-lbl">Total
+                    Checkpoints</span></div>
         </div>
 
-        <!-- Tute Card Grid / List Container -->
-        <section class="tute-grid" id="tuteGrid">
-            <!-- Loading Skeleton -->
+        <!-- Class Card Grid / List Container -->
+        <section class="tute-grid" id="classGrid">
             <div class="loading-state" id="loadingState">
                 <div class="spinner"></div>
-                <p>Loading your worksheets...</p>
+                <p>Loading your classes...</p>
             </div>
         </section>
 
         <!-- Empty State View -->
         <div class="empty-state hidden" id="emptyState">
-            <div class="empty-icon"><i class="fa-solid fa-folder-open"></i></div>
-            <h3>No Tutes Found</h3>
-            <p id="emptyMessage">You haven't saved any interactive worksheets yet.</p>
-            <button class="lib-btn lib-btn-primary" onclick="window.location.href='/tute_lab/index.html'">
-                <i class="fa-solid fa-pen-to-square"></i> Open Tute Creator
+            <div class="empty-icon"><i class="fa-solid fa-video"></i></div>
+            <h3>No Classes Found</h3>
+            <p id="emptyMessage">You haven't published any interactive live classes yet.</p>
+            <button class="lib-btn lib-btn-primary" onclick="window.location.href='/class_organizer/index.html'">
+                <i class="fa-solid fa-clapperboard"></i> Open Class Organizer
             </button>
         </div>
     </main>
@@ -124,18 +123,50 @@
     <div class="modal-backdrop hidden" id="deleteModal">
         <div class="modal-card">
             <div class="modal-icon danger"><i class="fa-solid fa-triangle-exclamation"></i></div>
-            <h3>Delete Worksheet?</h3>
-            <p>Are you sure you want to delete "<strong id="deleteTuteTitle"></strong>"? This action cannot be undone.
-            </p>
+            <h3>Delete Class?</h3>
+            <p>Are you sure you want to delete "<strong id="deleteClassTitle"></strong>"? Students with this Class ID
+                will no longer be able to join.</p>
             <div class="modal-actions">
                 <button class="lib-btn lib-btn-ghost" id="btnCancelDelete">Cancel</button>
-                <button class="lib-btn lib-btn-danger" id="btnConfirmDelete">Delete Worksheet</button>
+                <button class="lib-btn lib-btn-danger" id="btnConfirmDelete">Delete Class</button>
             </div>
         </div>
     </div>
 
-    <!-- Application Script -->
-    <script src="/tute_library/app.js"></script>
+    <!-- Share / Code Modal -->
+    <div class="modal-backdrop hidden" id="shareModal">
+        <div class="modal-card modal-lg">
+            <div class="modal-icon success"><i class="fa-solid fa-share-nodes"></i></div>
+            <h3>Share Class</h3>
+            <p>Students can join with this Class ID or the direct link.</p>
+            <div class="publish-details">
+                <div class="share-info" style="width:100%">
+                    <div class="share-group">
+                        <label>Class ID</label>
+                        <div class="copy-input">
+                            <input type="text" id="shareClassId" readonly />
+                            <button type="button" id="btnCopyId" title="Copy Class ID"><i class="fa-solid fa-copy"></i></button>
+                        </div>
+                    </div>
+                    <div class="share-group">
+                        <label>Student Link</label>
+                        <div class="copy-input">
+                            <input type="text" id="shareClassUrl" readonly />
+                            <button type="button" id="btnCopyUrl" title="Copy Link"><i class="fa-solid fa-copy"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="lib-btn lib-btn-ghost" id="btnCloseShare">Close</button>
+                <a href="#" id="btnOpenLive" target="_blank" class="lib-btn lib-btn-primary">
+                    <i class="fa-solid fa-external-link"></i> Launch Live Class
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script src="/class_library/app.js"></script>
 </body>
 
 </html>
