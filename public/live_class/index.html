@@ -10,7 +10,8 @@
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
 
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -45,13 +46,8 @@
       <div><strong>SmartTute</strong><small>Interactive video lesson</small></div><button id="closeMenu"
         aria-label="Close menu">×</button>
     </div>
-    <a href="/live_class/index.html" class="active">🎥 <span>Live Class</span></a>
-    <a href="/tute_library/index.html">📚 <span>Tute Library</span></a>
-    <a href="/class_organizer/index.html">🎬 <span>Class Organizer</span></a>
-    <a href="/class_library/index.html">🗂️ <span>Class Library</span></a>
-    <a href="/session_scheduler/index.html">📅 <span>Session Scheduler</span></a>
-    <a href="/session_dashboard/index.html">📊 <span>Session Dashboard</span></a>
-    <a href="/tute_lab/index.html">🛠️ <span>Tute Creator (Lab)</span></a>
+    <a href="/live_class/index.html" class="active"><span>Live Class</span></a>
+    <a href="/tute_library/index.html"><span>Profile</span></a>
     <div class="menu-footer"><b>A</b>
       <div><strong>Student</strong><small>Grade 10</small></div>
     </div>
@@ -66,8 +62,8 @@
       <p id="nameGateDesc">Enter your name to join this session.</p>
       <form id="nameGateForm" autocomplete="off">
         <label for="studentNameInput">Your Name</label>
-        <input id="studentNameInput" type="text" placeholder="e.g. Ayesha Perera" required
-               autocomplete="name" spellcheck="false" maxlength="80" />
+        <input id="studentNameInput" type="text" placeholder="e.g. Ayesha Perera" required autocomplete="name"
+          spellcheck="false" maxlength="80" />
         <p class="name-gate-error hidden" id="nameGateError" role="alert"></p>
         <button type="submit" class="continue-button" id="btnJoinSession">
           <i class="fa-solid fa-right-to-bracket"></i> Join Session
@@ -88,7 +84,8 @@
         <p class="class-code-error hidden" id="classCodeError" role="alert"></p>
         <button type="submit" class="continue-button class-code-submit">Continue</button>
       </form>
-      <p class="class-code-hint">Teachers publish sessions from the <a href="/session_scheduler/index.html">Session Scheduler</a>.</p>
+      <p class="class-code-hint">Teachers publish sessions from the <a href="/session_scheduler/index.html">Session
+          Scheduler</a>.</p>
     </div>
   </div>
 
@@ -126,7 +123,8 @@
             <div class="question-icon">?</div>
             <div>
               <h2 id="waitingHeading">Questions will appear here</h2>
-              <p id="waitingCopy">Continue watching. Only the checkpoint question selected in Class Organizer will appear here — one at a time.</p>
+              <p id="waitingCopy">Continue watching. Only the checkpoint question selected in Class Organizer will
+                appear here — one at a time.</p>
             </div>
           </div>
 
@@ -158,7 +156,8 @@
 
         <div class="class-missing hidden" id="classMissing">
           <h2>Class not found</h2>
-          <p id="classMissingCopy">That Class ID is not saved in this browser. Ask your teacher to publish again, or re-enter the code.</p>
+          <p id="classMissingCopy">That Class ID is not saved in this browser. Ask your teacher to publish again, or
+            re-enter the code.</p>
           <button type="button" class="continue-button" id="btnReenterCode">Enter a different code</button>
         </div>
       </div>
