@@ -826,6 +826,14 @@
           showNameGate(session);
         }
       } catch (_) {
+        // Fallback: Check if the ID given was actually a class ID (direct link to class)
+        try {
+          const classData = await apiFetch('/api/classes/' + urlSessionId);
+          if (classData) { startClass(classData, null, 0); return; }
+        } catch (_) {}
+        const localClass = loadPublishedClassLocal(urlSessionId);
+        if (localClass) { startClass(localClass, null, 0); return; }
+
         showNotFound(urlSessionId);
       }
     })();
