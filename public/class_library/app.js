@@ -91,18 +91,36 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(STORE_KEY, JSON.stringify(store));
     }
 
-    function fetchClasses() {
+    async function fetchClasses() {
+        if (loadingState) loadingState.classList.remove('hidden');
+        let apiClasses = [];
         try {
-            if (loadingState) loadingState.classList.remove('hidden');
-            const store = readStore();
-            classes = Object.values(store).filter((c) => c && c.classId);
-            applyFilterAndSort();
+            const res = await fetch('/api/classes');
+            if (res.ok) {
+                apiClasses = await res.json();
+            }
         } catch (err) {
-            console.error('Error loading classes:', err);
-            showError('Unable to load saved classes from this browser.');
-        } finally {
-            if (loadingState) loadingState.classList.add('hidden');
+            console.warn('API classes fetch failed, falling back to local storage:', err);
         }
+
+        let localClasses = [];
+        try {
+            const store = readStore();
+            localClasses = Object.values(store).filter((c) => c && c.classId);
+        } catch (err) {
+            console.error('Error reading local store:', err);
+        }
+
+        const map = new Map();
+        [...apiClasses, ...localClasses].forEach((c) => {
+            if (c && c.classId) {
+                map.set(c.classId, c);
+            }
+        });
+
+        classes = Array.from(map.values());
+        if (loadingState) loadingState.classList.add('hidden');
+        applyFilterAndSort();
     }
 
     function showError(msg) {
@@ -279,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnCancelDelete) btnCancelDelete.addEventListener('click', closeDeleteModal);
 
     if (btnConfirmDelete) {
-        btnConfirmDelete.addEventListener('click', () => {
+        btnConfirmDelete.addEventListener('click', async () => {
             if (!classToDeleteId) return;
 
             const store = readStore();
@@ -290,6 +308,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const remaining = Object.keys(store);
                 if (remaining.length) localStorage.setItem(LATEST_KEY, remaining[remaining.length - 1]);
                 else localStorage.removeItem(LATEST_KEY);
+            }
+
+            try {
+                await fetch('/api/classes/' + encodeURIComponent(classToDeleteId), { method: 'DELETE' });
+            } catch (err) {
+                console.warn('Failed to delete class from database:', err);
             }
 
             classes = classes.filter((c) => c.classId !== classToDeleteId);

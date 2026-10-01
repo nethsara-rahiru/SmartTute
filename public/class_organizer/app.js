@@ -756,6 +756,14 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(STORE_KEY, JSON.stringify(store));
         localStorage.setItem(LATEST_KEY, classData.classId);
         editingClassId = classData.classId;
+
+        // Post to backend database so other clients / browsers can access it
+        fetch('/api/classes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(classData)
+        }).catch((err) => console.warn('Failed to publish class to database:', err.message));
+
         return classData;
     }
 
