@@ -143,6 +143,10 @@
   /* ── Voice recording ─────────────────────────────────────────── */
   function startVoiceRecording() {
     if (isRecording) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('Microphone recording is not supported in this browser environment or requires an HTTPS / localhost connection.');
+      return;
+    }
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then((stream) => {
         isRecording   = true;
@@ -159,16 +163,31 @@
           if (voiceElapsedSec >= MAX_VOICE_SEC) stopVoiceRecording(true);
         }, 1000);
 
-        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+        let mimeType = '';
+        const types = [
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/mp4',
+          'audio/aac',
+          'audio/ogg',
+          'audio/wav'
+        ];
+        for (const t of types) {
+          if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(t)) {
+            mimeType = t;
+            break;
+          }
+        }
 
-        mediaRecorder = new MediaRecorder(stream, { mimeType });
+        const options = mimeType ? { mimeType } : undefined;
+        mediaRecorder = new MediaRecorder(stream, options);
+        const actualType = mediaRecorder.mimeType || mimeType || 'audio/webm';
+
         mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
         mediaRecorder.onstop = () => {
           stream.getTracks().forEach(t => t.stop());
           if (audioChunks.length > 0 && !cancelledRecording) {
-            const blob = new Blob(audioChunks, { type: mimeType });
+            const blob = new Blob(audioChunks, { type: actualType });
             const reader = new FileReader();
             reader.onload = (ev) => sendVoiceMessage(ev.target.result, voiceElapsedSec);
             reader.readAsDataURL(blob);
@@ -177,8 +196,15 @@
         };
         mediaRecorder.start(250); // collect in 250ms chunks
       })
-      .catch(() => {
-        alert('Microphone access is needed to send voice messages. Please allow microphone access and try again.');
+      .catch((err) => {
+        console.error('Microphone error:', err);
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          alert('Microphone access was denied. Please allow microphone permissions in your browser settings (click the lock/tune icon near the address bar).');
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          alert('No microphone device was found on your computer/device.');
+        } else {
+          alert('Could not access microphone: ' + (err.message || err.name || 'Unknown error'));
+        }
       });
   }
 
