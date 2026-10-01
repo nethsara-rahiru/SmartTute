@@ -19,4 +19,10 @@ router.route('/:sessionId')
 // POST /api/sessions/:sessionId/join — student joins (validates window, records name)
 router.post('/:sessionId/join', sessionController.joinSession);
 
+// POST /api/sessions/:sessionId/ping — presence heartbeat
+router.post('/:sessionId/ping', sessionController.pingSession);
+
+// POST /api/sessions/:sessionId/response — record checkpoint answer
+router.post('/:sessionId/response', sessionController.recordResponse);
+
 module.exports = router;

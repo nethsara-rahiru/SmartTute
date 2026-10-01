@@ -126,7 +126,7 @@ exports.deleteSession = async (req, res) => {
 /* ─── POST /api/sessions/:sessionId/join ─────────────── */
 exports.joinSession = async (req, res) => {
     try {
-        const { name } = req.body;
+        const { name, studentId: reqStudentId } = req.body;
         if (!name || !String(name).trim()) {
             return res.status(400).json({ error: 'Please enter your name before joining.' });
         }
@@ -137,19 +137,85 @@ exports.joinSession = async (req, res) => {
         const joinable = isSessionJoinable(session);
         if (!joinable.ok) return res.status(403).json({ error: joinable.reason });
 
-        // Record participant
-        session.participants.push({ name: String(name).trim(), joinedAt: new Date() });
+        const studentId = reqStudentId || ('stu_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
+
+        let participant = session.participants.find(p => p.studentId === studentId);
+        if (participant) {
+            participant.name = String(name).trim();
+            participant.lastSeen = new Date();
+        } else {
+            session.participants.push({
+                studentId,
+                name: String(name).trim(),
+                joinedAt: new Date(),
+                lastSeen: new Date(),
+                checkpoints: {}
+            });
+        }
         await session.save();
 
-        // Return session data (without participant list for privacy, include elapsedSec for sync mode)
         const sessionData = session.toObject();
         delete sessionData.participants;
 
         res.json({
             session: sessionData,
+            studentId,
             elapsedSec: joinable.elapsedSec || 0
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 };
+
+/* ─── POST /api/sessions/:sessionId/ping ─────────────── */
+exports.pingSession = async (req, res) => {
+    try {
+        const { studentId } = req.body;
+        if (!studentId) return res.status(400).json({ error: 'studentId is required.' });
+
+        const session = await Session.findOne({ sessionId: req.params.sessionId });
+        if (!session) return res.status(404).json({ error: 'Session not found.' });
+
+        const participant = session.participants.find(p => p.studentId === studentId);
+        if (participant) {
+            participant.lastSeen = new Date();
+            await session.save();
+        }
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+/* ─── POST /api/sessions/:sessionId/response ─────────── */
+exports.recordResponse = async (req, res) => {
+    try {
+        const { studentId, cpId, status, isCorrect, timeTaken } = req.body;
+        if (!studentId || !cpId) {
+            return res.status(400).json({ error: 'studentId and cpId are required.' });
+        }
+
+        const session = await Session.findOne({ sessionId: req.params.sessionId });
+        if (!session) return res.status(404).json({ error: 'Session not found.' });
+
+        let participant = session.participants.find(p => p.studentId === studentId);
+        if (!participant) {
+            return res.status(404).json({ error: 'Participant not registered in this session.' });
+        }
+
+        participant.lastSeen = new Date();
+        if (!participant.checkpoints) participant.checkpoints = new Map();
+
+        participant.checkpoints.set(cpId, {
+            status: status || 'answered',
+            isCorrect: Boolean(isCorrect),
+            timeTaken: Number(timeTaken) || 0
+        });
+
+        await session.save();
+        res.json({ ok: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+

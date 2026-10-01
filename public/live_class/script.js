@@ -464,6 +464,7 @@
   function showCheckpoint(index) {
     activeIndex = index;
     answered = false;
+    cpStartTime = Date.now();
     const cp = checkpoints[index];
     const q  = cp.question || {};
 
@@ -544,13 +545,18 @@
       if (!ok) { allCorrect = false; if (expected) missed.push(expected); }
     });
 
-    if (!ids.length) { feedback.textContent = 'Answer recorded.'; feedback.className = 'feedback ok'; return true; }
+    const isOk = (!ids.length || allCorrect);
+    if (!ids.length) { feedback.textContent = 'Answer recorded.'; feedback.className = 'feedback ok'; }
+    else {
+      feedback.textContent = allCorrect
+        ? 'Correct — well done!'
+        : (missed.length ? 'Not quite. Expected: "' + missed.join('", "') + '".' : 'Not quite — check your answers.');
+      feedback.className = 'feedback ' + (allCorrect ? 'ok' : 'bad');
+    }
 
-    feedback.textContent = allCorrect
-      ? 'Correct — well done!'
-      : (missed.length ? 'Not quite. Expected: "' + missed.join('", "') + '".' : 'Not quite — check your answers.');
-    feedback.className = 'feedback ' + (allCorrect ? 'ok' : 'bad');
-    return allCorrect;
+    const timeTaken = (Date.now() - (cpStartTime || Date.now())) / 1000;
+    reportResponse(cp.id || ('cp_' + activeIndex), 'answered', isOk, timeTaken);
+    return isOk;
   }
 
   function gradeMcq(choice) {
@@ -564,6 +570,9 @@
     if (!isCorrect && chosenBtn) chosenBtn.classList.add('wrong');
     feedback.textContent = isCorrect ? 'Correct — well done!' : 'Not quite. The correct answer is "' + ((q.options && q.options[correct]) || '') + '".';
     feedback.className = 'feedback ' + (isCorrect ? 'ok' : 'bad');
+
+    const timeTaken = (Date.now() - (cpStartTime || Date.now())) / 1000;
+    reportResponse(cp.id || ('cp_' + activeIndex), 'answered', isCorrect, timeTaken);
     return isCorrect;
   }
 
@@ -586,6 +595,9 @@
       }
       feedback.textContent = 'Time is up. Moving on when you continue.';
       feedback.className = 'feedback bad';
+
+      const timeTaken = (Date.now() - (cpStartTime || Date.now())) / 1000;
+      reportResponse(cp.id || ('cp_' + activeIndex), 'not_answered', false, timeTaken);
     }
 
     completed.add(activeIndex);
@@ -722,7 +734,35 @@
   /* ──────────────────────────────────────────────────────
    *  Name gate form — called when sessionId is in the URL
    * ────────────────────────────────────────────────────── */
-  let pendingSession = null; // session object shown on name gate
+  let currentStudentId = null;
+  let activeSessionObj = null;
+  let cpStartTime = 0;
+  let heartbeatInterval = null;
+
+  function startHeartbeat(sessionId, studentId) {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    if (!sessionId || !studentId) return;
+    heartbeatInterval = setInterval(() => {
+      apiFetch('/api/sessions/' + sessionId + '/ping', {
+        method: 'POST',
+        body: { studentId }
+      }).catch(() => {});
+    }, 10000);
+  }
+
+  function reportResponse(cpId, status, isCorrect, timeTaken) {
+    if (!activeSessionObj || !currentStudentId || !cpId) return;
+    apiFetch('/api/sessions/' + activeSessionObj.sessionId + '/response', {
+      method: 'POST',
+      body: {
+        studentId: currentStudentId,
+        cpId,
+        status,
+        isCorrect: Boolean(isCorrect),
+        timeTaken: Math.round(timeTaken || 0)
+      }
+    }).catch(() => {});
+  }
 
   if (nameGateForm) {
     nameGateForm.addEventListener('submit', async (e) => {
@@ -735,18 +775,29 @@
       if (btnJoinSession) { btnJoinSession.disabled = true; btnJoinSession.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Joining…'; }
 
       try {
+        let storedStudentId = null;
+        try { storedStudentId = sessionStorage.getItem('st_student_id_' + pendingSession.sessionId); } catch (_) {}
+        if (!storedStudentId) {
+          storedStudentId = 'stu_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+          try { sessionStorage.setItem('st_student_id_' + pendingSession.sessionId, storedStudentId); } catch (_) {}
+        }
+
         const result = await apiFetch('/api/sessions/' + pendingSession.sessionId + '/join', {
           method: 'POST',
-          body: { name }
+          body: { name, studentId: storedStudentId }
         });
 
+        currentStudentId = result.studentId || storedStudentId;
         // Cache join data so a refresh skips the name gate
         try {
-          sessionStorage.setItem('st_join_' + pendingSession.sessionId, JSON.stringify({ name, sessionId: pendingSession.sessionId }));
+          sessionStorage.setItem('st_join_' + pendingSession.sessionId, JSON.stringify({ name, studentId: currentStudentId, sessionId: pendingSession.sessionId }));
         } catch (_) {}
 
         const session = result.session || pendingSession;
+        activeSessionObj = session;
         const elapsedSec = result.elapsedSec || 0;
+
+        startHeartbeat(session.sessionId, currentStudentId);
 
         // Fetch class data
         let classData = null;
@@ -850,8 +901,13 @@
         if (cached && cached.name) {
           // Re-join silently (page refresh), re-record attendance
           try {
-            const result = await apiFetch('/api/sessions/' + urlSessionId + '/join', { method: 'POST', body: { name: cached.name } });
+            const sid = cached.studentId || ('stu_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
+            const result = await apiFetch('/api/sessions/' + urlSessionId + '/join', { method: 'POST', body: { name: cached.name, studentId: sid } });
             const s = result.session || session;
+            activeSessionObj = s;
+            currentStudentId = result.studentId || sid;
+            startHeartbeat(s.sessionId, currentStudentId);
+
             let classData = null;
             try { classData = await apiFetch('/api/classes/' + s.classId); } catch (_) {}
             if (!classData) classData = loadPublishedClassLocal(s.classId);

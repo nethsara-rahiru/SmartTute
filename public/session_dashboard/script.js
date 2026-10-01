@@ -126,30 +126,67 @@
     return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  /* ── API Helpers & Storage ────────────────────────────────────────── */
+  async function apiFetch(url, options = {}) {
+    try {
+      const res = await fetch(url, options);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (e) {
+      return null;
+    }
+  }
+
   /* ── Session Picker Gate ─────────────────────────────────────────── */
-  function populateSessionPicker() {
-    const sessions = readJson(KEY_SESSIONS, {});
-    const keys = Object.keys(sessions);
+  async function populateSessionPicker() {
+    sessionPicker.innerHTML = '<option value="">Loading sessions...</option>';
+    btnMonitor.disabled = true;
+
+    // Fetch local and server sessions
+    const localSessions = readJson(KEY_SESSIONS, {});
+    let apiSessionsList = await apiFetch('/api/sessions');
+    
+    const sessionsMap = {};
+    // First fill local
+    Object.keys(localSessions).forEach(id => {
+      sessionsMap[id] = localSessions[id];
+    });
+
+    // Merge API sessions
+    if (Array.isArray(apiSessionsList)) {
+      apiSessionsList.forEach(s => {
+        const id = s.sessionId || s._id;
+        sessionsMap[id] = {
+          sessionId: id,
+          title: s.title || id,
+          classId: s.classId,
+          startAt: s.startAt || s.createdAt,
+          participants: s.participants || []
+        };
+      });
+    }
+
+    const keys = Object.keys(sessionsMap);
     sessionPicker.innerHTML = '<option value="">-- Choose a Session --</option>';
     keys.sort((a, b) => {
-      const tA = new Date(sessions[a].startAt || 0).getTime();
-      const tB = new Date(sessions[b].startAt || 0).getTime();
+      const tA = new Date(sessionsMap[a].startAt || 0).getTime();
+      const tB = new Date(sessionsMap[b].startAt || 0).getTime();
       return tB - tA;
     }).forEach(key => {
-      const s = sessions[key];
+      const s = sessionsMap[key];
       const opt = document.createElement('option');
       opt.value = key;
       const d = s.startAt ? new Date(s.startAt).toLocaleString() : 'Unknown time';
       opt.textContent = (s.title || key) + ' — ' + d;
       sessionPicker.appendChild(opt);
     });
+
     if (!keys.length) {
       const opt = document.createElement('option');
       opt.disabled = true;
       opt.textContent = 'No sessions found — create one in Session Scheduler';
       sessionPicker.appendChild(opt);
     }
-    btnMonitor.disabled = true;
   }
 
   sessionPicker && sessionPicker.addEventListener('change', () => {
@@ -167,15 +204,34 @@
   });
 
   /* ── Load Session ────────────────────────────────────────────────── */
-  function loadSession(sessionId) {
-    const sessions = readJson(KEY_SESSIONS, {});
-    const session  = sessions[sessionId];
+  async function loadSession(sessionId) {
+    let session = null;
+
+    // Try API first
+    const apiSession = await apiFetch(`/api/sessions/${sessionId}`);
+    if (apiSession) {
+      session = apiSession;
+    } else {
+      const localSessions = readJson(KEY_SESSIONS, {});
+      session = localSessions[sessionId];
+    }
+
     if (!session) {
       alert('Session "' + sessionId + '" not found.');
       return;
     }
-    const classes = readJson(KEY_CLASSES, {});
-    const classData = classes[session.classId] || null;
+
+    // Load class blueprint
+    let classData = null;
+    if (session.classId) {
+      const apiClass = await apiFetch(`/api/classes/${session.classId}`);
+      if (apiClass) {
+        classData = apiClass;
+      } else {
+        const localClasses = readJson(KEY_CLASSES, {});
+        classData = localClasses[session.classId] || null;
+      }
+    }
 
     activeSessionId = sessionId;
     activeSession   = session;
@@ -266,8 +322,52 @@
   /* ── Response Data ───────────────────────────────────────────────── */
   function getResponses() {
     if (isDemo && demoState) return demoState.responses;
-    const all = readJson(KEY_RESPONSES, {});
-    return all[activeSessionId] || {};
+
+    const formattedResponses = {};
+
+    // 1. Process server session participants if available
+    if (activeSession && Array.isArray(activeSession.participants)) {
+      activeSession.participants.forEach(p => {
+        const sid = p.studentId || p._id || 'stu_unknown';
+        const cps = {};
+
+        if (p.checkpoints) {
+          if (p.checkpoints instanceof Map) {
+            p.checkpoints.forEach((val, key) => { cps[key] = val; });
+          } else if (typeof p.checkpoints === 'object') {
+            Object.keys(p.checkpoints).forEach(key => { cps[key] = p.checkpoints[key]; });
+          }
+        }
+
+        formattedResponses[sid] = {
+          studentId: sid,
+          name: p.name || 'Student ' + sid.slice(-4),
+          joinedAt: p.joinedAt,
+          lastSeen: p.lastSeen,
+          checkpoints: cps
+        };
+      });
+    }
+
+    // 2. Overlay localStorage fallback responses
+    const allLocal = readJson(KEY_RESPONSES, {});
+    const sessionLocal = allLocal[activeSessionId] || {};
+    Object.keys(sessionLocal).forEach(sid => {
+      if (!formattedResponses[sid]) {
+        formattedResponses[sid] = sessionLocal[sid];
+      } else {
+        // Merge checkpoints
+        formattedResponses[sid].checkpoints = {
+          ...formattedResponses[sid].checkpoints,
+          ...(sessionLocal[sid].checkpoints || {})
+        };
+        if (sessionLocal[sid].lastSeen) {
+          formattedResponses[sid].lastSeen = sessionLocal[sid].lastSeen;
+        }
+      }
+    });
+
+    return formattedResponses;
   }
 
   /* ── Compute Stats ───────────────────────────────────────────────── */
@@ -830,8 +930,13 @@
     stopPolling();
     renderAll();
     refreshStartTs = Date.now();
-    refreshInterval = setInterval(() => {
-      if (isDemo) tickDemoSimulation();
+    refreshInterval = setInterval(async () => {
+      if (isDemo) {
+        tickDemoSimulation();
+      } else if (activeSessionId) {
+        const updatedSession = await apiFetch(`/api/sessions/${activeSessionId}`);
+        if (updatedSession) activeSession = updatedSession;
+      }
       renderAll();
       refreshStartTs = Date.now();
     }, REFRESH_PERIOD_MS);

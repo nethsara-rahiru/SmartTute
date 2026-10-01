@@ -1,8 +1,17 @@
 const mongoose = require('mongoose');
 
+const checkpointResponseSchema = new mongoose.Schema({
+    status: { type: String, enum: ['answered', 'not_answered'], default: 'answered' },
+    isCorrect: { type: Boolean, default: false },
+    timeTaken: { type: Number, default: 0 }
+}, { _id: false });
+
 const participantSchema = new mongoose.Schema({
+    studentId: { type: String, required: true },
     name: { type: String, required: true, trim: true },
-    joinedAt: { type: Date, default: Date.now }
+    joinedAt: { type: Date, default: Date.now },
+    lastSeen: { type: Date, default: Date.now },
+    checkpoints: { type: Map, of: checkpointResponseSchema, default: {} }
 }, { _id: false });
 
 const sessionSchema = new mongoose.Schema({
