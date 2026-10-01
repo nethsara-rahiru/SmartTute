@@ -176,7 +176,7 @@ exports.pingSession = async (req, res) => {
         const session = await Session.findOne({ sessionId: req.params.sessionId });
         if (!session) return res.status(404).json({ error: 'Session not found.' });
 
-        const participant = session.participants.find(p => p.studentId === studentId);
+        const participant = session.participants.find(p => p.studentId && p.studentId === studentId);
         if (participant) {
             participant.lastSeen = new Date();
             await session.save();
@@ -198,7 +198,7 @@ exports.recordResponse = async (req, res) => {
         const session = await Session.findOne({ sessionId: req.params.sessionId });
         if (!session) return res.status(404).json({ error: 'Session not found.' });
 
-        let participant = session.participants.find(p => p.studentId === studentId);
+        let participant = session.participants.find(p => p.studentId && p.studentId === studentId);
         if (!participant) {
             return res.status(404).json({ error: 'Participant not registered in this session.' });
         }

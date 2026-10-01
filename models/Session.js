@@ -7,7 +7,7 @@ const checkpointResponseSchema = new mongoose.Schema({
 }, { _id: false });
 
 const participantSchema = new mongoose.Schema({
-    studentId: { type: String, required: true },
+    studentId: { type: String, default: '' },
     name: { type: String, required: true, trim: true },
     joinedAt: { type: Date, default: Date.now },
     lastSeen: { type: Date, default: Date.now },
