@@ -6,6 +6,7 @@ const connectDB = require('./config/database/connection');
 const tuteRoutes = require('./routes/tuteRoutes');
 const sessionRoutes = require('./routes/sessionRoutes');
 const classRoutes = require('./routes/classRoutes');
+const chatRoutes = require('./routes/chatRoutes');
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/tutes', tuteRoutes);
 app.use('/api/sessions', sessionRoutes);
 app.use('/api/classes', classRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Fallback route for root -> serve tute_library/index.html
 app.get('/', (req, res) => {

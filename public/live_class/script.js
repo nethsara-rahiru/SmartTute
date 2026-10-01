@@ -61,9 +61,6 @@
 
   const chatToggles = document.querySelectorAll('.chat-toggle');
   const chatPanel   = document.querySelector('#chatPanel');
-  const chatForm    = document.querySelector('#chatForm');
-  const chatInput   = document.querySelector('#chatInput');
-  const chatMessages = document.querySelector('#chatMessages');
 
   function setChat(open) {
     if (!chatPanel) return;
@@ -73,23 +70,20 @@
       btn.setAttribute('aria-label', open ? 'Close lesson chat' : 'Open lesson chat');
       btn.classList.toggle('active', open);
     });
-    if (open && chatInput) chatInput.focus();
+    if (open) {
+      const ci = document.getElementById('chatInput');
+      if (ci) ci.focus();
+    }
   }
   chatToggles.forEach((btn) => { btn.onclick = () => setChat(!chatPanel.classList.contains('open')); });
   const closeChat = document.querySelector('#closeChat');
   if (closeChat) closeChat.onclick = () => setChat(false);
-  if (chatForm) {
-    chatForm.onsubmit = (event) => {
-      event.preventDefault();
-      const message = chatInput.value.trim();
-      if (!message) return;
-      const bubble = document.createElement('p');
-      bubble.className = 'chat-bubble';
-      bubble.textContent = message;
-      chatMessages.append(bubble);
-      chatInput.value = '';
-      chatMessages.scrollTop = chatMessages.scrollHeight;
-    };
+
+  /* Chat globals — set after student joins so chat.js can start */
+  function initChatContext(sessionId, studentId, studentName) {
+    window._chatSessionId   = sessionId;
+    window._chatStudentId   = studentId;
+    window._chatStudentName = studentName;
   }
 
   /* ──────────────────────────────────────────────────────
@@ -793,6 +787,9 @@
           sessionStorage.setItem('st_join_' + pendingSession.sessionId, JSON.stringify({ name, studentId: currentStudentId, sessionId: pendingSession.sessionId }));
         } catch (_) {}
 
+        // Expose chat context for chat.js
+        initChatContext(pendingSession.sessionId, currentStudentId, name);
+
         const session = result.session || pendingSession;
         activeSessionObj = session;
         const elapsedSec = result.elapsedSec || 0;
@@ -907,6 +904,8 @@
             activeSessionObj = s;
             currentStudentId = result.studentId || sid;
             startHeartbeat(s.sessionId, currentStudentId);
+            // Expose chat context for chat.js
+            initChatContext(s.sessionId, currentStudentId, cached.name);
 
             let classData = null;
             try { classData = await apiFetch('/api/classes/' + s.classId); } catch (_) {}
