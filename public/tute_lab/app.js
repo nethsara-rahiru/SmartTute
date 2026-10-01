@@ -302,6 +302,13 @@ Answer: $n(A \\cup B) =$ {{answer2}}.`,
                 ` : ''}
             ` : '';
 
+            if (!ansObj.inputType) {
+                ansObj.inputType = (ansObj.options && ansObj.options.length) ? 'select' : 'text';
+            }
+
+            const showOptionsInput = ansObj.inputType === 'select';
+            const optionsValue = Array.isArray(ansObj.options) ? ansObj.options.join(', ') : (ansObj.options || '');
+
             card.innerHTML = `
                 <div class="ans-config-header">
                     <span class="ans-tag-badge"><i class="fa-solid fa-tag"></i> {{${tagId}}}</span>
@@ -309,16 +316,50 @@ Answer: $n(A \\cup B) =$ {{answer2}}.`,
                 </div>
                 <div class="ans-inputs-row">
                     <div class="ans-field-group">
-                        <label>Correct Answer / Value</label>
-                        <input type="text" data-tag="${tagId}" class="input-correct-ans" placeholder="e.g. 5 or 0.6 or x=2" value="${escapeHtml(ansObj.correctAnswer)}">
+                        <label><i class="fa-solid fa-list-check"></i> Answer Input Type</label>
+                        <select data-tag="${tagId}" class="select-ans-input-type drawer-select" style="padding: 4px 8px; font-size: 0.8rem; height: 32px;">
+                            <option value="text" ${ansObj.inputType === 'text' ? 'selected' : ''}>Fill-in Text Box</option>
+                            <option value="select" ${ansObj.inputType === 'select' ? 'selected' : ''}>Dropdown / Radio Options (MCQ)</option>
+                        </select>
+                    </div>
+                    ${showOptionsInput ? `
+                    <div class="ans-field-group">
+                        <label><i class="fa-solid fa-square-poll-vertical"></i> Answer Options (comma separated)</label>
+                        <input type="text" data-tag="${tagId}" class="input-ans-options" placeholder="e.g. Yes, No  OR  A, B, C, D  OR  2, 3, 4" value="${escapeHtml(optionsValue)}">
+                    </div>
+                    ` : ''}
+                    <div class="ans-field-group">
+                        <label>Correct Answer / Choice</label>
+                        <input type="text" data-tag="${tagId}" class="input-correct-ans" placeholder="e.g. Yes or A or 5" value="${escapeHtml(ansObj.correctAnswer)}">
                     </div>
                     <div class="ans-field-group">
                         <label>Worked Solution (LaTeX)</label>
-                        <input type="text" data-tag="${tagId}" class="input-solution-ans" placeholder="e.g. Factoring gives x = 5" value="${escapeHtml(ansObj.solution)}">
+                        <input type="text" data-tag="${tagId}" class="input-solution-ans" placeholder="e.g. Option A is correct because..." value="${escapeHtml(ansObj.solution)}">
                     </div>
                     ${hotspotFieldsHtml}
                 </div>
             `;
+
+            const typeSelect = card.querySelector('.select-ans-input-type');
+            if (typeSelect) {
+                typeSelect.onchange = (e) => {
+                    q.answers[tagId].inputType = e.target.value;
+                    if (e.target.value === 'select' && (!q.answers[tagId].options || !q.answers[tagId].options.length)) {
+                        q.answers[tagId].options = ['Yes', 'No'];
+                    }
+                    syncAnswersConfig();
+                    renderPaperPreview();
+                };
+            }
+
+            const optionsInput = card.querySelector('.input-ans-options');
+            if (optionsInput) {
+                optionsInput.oninput = (e) => {
+                    const rawStr = e.target.value;
+                    q.answers[tagId].options = rawStr.split(',').map(s => s.trim()).filter(Boolean);
+                    renderPaperPreview();
+                };
+            }
 
             // Input handlers
             card.querySelector('.input-correct-ans').oninput = (e) => {
@@ -556,8 +597,15 @@ Answer: $n(A \\cup B) =$ {{answer2}}.`,
             }
         });
 
-        // 4. Replace {{answerX}} tags with clean interactive <input> fields
+        // 4. Replace {{answerX}} tags with clean interactive <input> or <select> fields
         processed = processed.replace(/\{\{([a-zA-Z0-9_\-]+)\}\}/g, (fullMatch, tagId) => {
+            const ansConfig = (answersMap && answersMap[tagId]) ? answersMap[tagId] : {};
+            const isSelect = ansConfig.inputType === 'select' || (Array.isArray(ansConfig.options) && ansConfig.options.length > 0);
+            if (isSelect) {
+                const opts = (Array.isArray(ansConfig.options) && ansConfig.options.length) ? ansConfig.options : ['Yes', 'No'];
+                const optionsHtml = `<option value="">Select option…</option>` + opts.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
+                return `<span class="answer-box-container"><select class="tute-answer-input tute-answer-select" data-q-idx="${qIndex}" data-ans-id="${tagId}">${optionsHtml}</select><span class="ans-tag-label">${tagId}</span></span>`;
+            }
             return `<span class="answer-box-container"><input type="text" class="tute-answer-input" data-q-idx="${qIndex}" data-ans-id="${tagId}" placeholder="${tagId}" autocomplete="off" spellcheck="false"><span class="ans-tag-label">${tagId}</span></span>`;
         });
 

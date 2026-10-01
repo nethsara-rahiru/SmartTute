@@ -335,21 +335,42 @@
           const top   = Number(hs.y) || 0;
 
           if (displayStyle === 'label') {
-            hotspotsHtml += '<div class="hotspot-badge-wrap" style="left:' + left + '%;top:' + top + '%;"><span class="hs-display-badge"><i class="fa-solid fa-tag"></i> ' + escapeHtml(customText) + '</span><input type="text" class="tute-answer-input hs-live-input" data-ans-id="' + tagId + '" placeholder="Answer…" autocomplete="off" spellcheck="false"></div>';
+            const ansCfg = (answersMap && answersMap[hs.tagId]) || {};
+            const isSel = ansCfg.inputType === 'select' || (Array.isArray(ansCfg.options) && ansCfg.options.length > 0);
+            let inputHtml = '<input type="text" class="tute-answer-input hs-live-input" data-ans-id="' + tagId + '" placeholder="Answer…" autocomplete="off" spellcheck="false">';
+            if (isSel) {
+              const opts = (Array.isArray(ansCfg.options) && ansCfg.options.length) ? ansCfg.options : ['Yes', 'No'];
+              inputHtml = '<select class="tute-answer-input tute-answer-select hs-live-input" data-ans-id="' + tagId + '"><option value="">Select…</option>' + opts.map(o => '<option value="' + escapeHtml(o) + '">' + escapeHtml(o) + '</option>').join('') + '</select>';
+            }
+            hotspotsHtml += '<div class="hotspot-badge-wrap" style="left:' + left + '%;top:' + top + '%;"><span class="hs-display-badge"><i class="fa-solid fa-tag"></i> ' + escapeHtml(customText) + '</span>' + inputHtml + '</div>';
           } else if (displayStyle === 'dot') {
             const popoverId = 'popover_' + tagId + '_' + hsIdx;
+            const ansCfg = (answersMap && answersMap[hs.tagId]) || {};
+            const isSel = ansCfg.inputType === 'select' || (Array.isArray(ansCfg.options) && ansCfg.options.length > 0);
+            let inputHtml = '<input type="text" class="tute-answer-input hs-popover-input" data-ans-id="' + tagId + '" placeholder="Answer…" autocomplete="off" spellcheck="false">';
+            if (isSel) {
+              const opts = (Array.isArray(ansCfg.options) && ansCfg.options.length) ? ansCfg.options : ['Yes', 'No'];
+              inputHtml = '<select class="tute-answer-input tute-answer-select hs-popover-input" data-ans-id="' + tagId + '"><option value="">Select option…</option>' + opts.map(o => '<option value="' + escapeHtml(o) + '">' + escapeHtml(o) + '</option>').join('') + '</select>';
+            }
             hotspotsHtml += '<div class="hotspot-dot-wrap" style="left:' + left + '%;top:' + top + '%;">' +
               '<span class="hs-display-dot" onclick="window.toggleLiveHotspotPopover(event, \'' + popoverId + '\')">' + (hsIdx + 1) + '</span>' +
               '<div class="hs-answer-popover" id="' + popoverId + '">' +
               '<div class="popover-arrow"></div>' +
               '<div class="popover-title"><i class="fa-solid fa-bullseye"></i> ' + escapeHtml(customText) + '</div>' +
-              '<input type="text" class="tute-answer-input hs-popover-input" data-ans-id="' + tagId + '" placeholder="Answer…" autocomplete="off" spellcheck="false">' +
+              inputHtml +
               '</div>' +
               '</div>';
           } else if (displayStyle === 'checkbox') {
             hotspotsHtml += '<div class="hotspot-checkbox-wrap" style="left:' + left + '%;top:' + top + '%;"><label class="hs-checkbox-label"><input type="checkbox" class="tute-hs-checkbox" data-ans-id="' + tagId + '"><span>' + escapeHtml(customText) + '</span></label></div>';
           } else {
-            hotspotsHtml += '<div class="hotspot-input-wrap" style="left:' + left + '%;top:' + top + '%;"><input type="text" class="tute-answer-input" data-ans-id="' + tagId + '" placeholder="' + escapeHtml(customText) + '" autocomplete="off" spellcheck="false"></div>';
+            const ansCfg = (answersMap && answersMap[hs.tagId]) || {};
+            const isSel = ansCfg.inputType === 'select' || (Array.isArray(ansCfg.options) && ansCfg.options.length > 0);
+            let inputHtml = '<input type="text" class="tute-answer-input" data-ans-id="' + tagId + '" placeholder="' + escapeHtml(customText) + '" autocomplete="off" spellcheck="false">';
+            if (isSel) {
+              const opts = (Array.isArray(ansCfg.options) && ansCfg.options.length) ? ansCfg.options : ['Yes', 'No'];
+              inputHtml = '<select class="tute-answer-input tute-answer-select" data-ans-id="' + tagId + '"><option value="">Select…</option>' + opts.map(o => '<option value="' + escapeHtml(o) + '">' + escapeHtml(o) + '</option>').join('') + '</select>';
+            }
+            hotspotsHtml += '<div class="hotspot-input-wrap" style="left:' + left + '%;top:' + top + '%;">' + inputHtml + '</div>';
           }
         });
       }
@@ -363,6 +384,13 @@
     });
 
     processed = processed.replace(/\{\{([a-zA-Z0-9_\-]+)\}\}/g, (fullMatch, tagId) => {
+      const ansCfg = (answersMap && answersMap[tagId]) || {};
+      const isSel = ansCfg.inputType === 'select' || (Array.isArray(ansCfg.options) && ansCfg.options.length > 0);
+      if (isSel) {
+        const opts = (Array.isArray(ansCfg.options) && ansCfg.options.length) ? ansCfg.options : ['Yes', 'No'];
+        const optionsHtml = '<option value="">Select option…</option>' + opts.map(o => '<option value="' + escapeHtml(o) + '">' + escapeHtml(o) + '</option>').join('');
+        return '<span class="answer-box-container"><select class="tute-answer-input tute-answer-select" data-ans-id="' + escapeHtml(tagId) + '">' + optionsHtml + '</select><span class="ans-tag-label">' + escapeHtml(tagId) + '</span></span>';
+      }
       return '<span class="answer-box-container"><input type="text" class="tute-answer-input" data-ans-id="' + escapeHtml(tagId) + '" placeholder="' + escapeHtml(tagId) + '" autocomplete="off" spellcheck="false"><span class="ans-tag-label">' + escapeHtml(tagId) + '</span></span>';
     });
 
@@ -522,7 +550,7 @@
     ids.forEach((id) => {
       const expected = answersMap[id] ? String(answersMap[id].correctAnswer || '').trim() : '';
       const checkbox = (questionBody || document).querySelector('input.tute-hs-checkbox[data-ans-id="' + id + '"]');
-      const input    = (questionBody || document).querySelector('input.tute-answer-input[data-ans-id="' + id + '"], input.live-text-input[data-ans-id="' + id + '"]');
+      const input    = (questionBody || document).querySelector('.tute-answer-input[data-ans-id="' + id + '"], .tute-answer-select[data-ans-id="' + id + '"], input.live-text-input[data-ans-id="' + id + '"]');
 
       if (checkbox && !input) {
         checkbox.disabled = true;
