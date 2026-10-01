@@ -145,6 +145,15 @@
     return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
+  function checkAnswerMatchMulti(userVal, expectedStr) {
+    if (!userVal && !expectedStr) return true;
+    if (!userVal || !expectedStr) return false;
+    const u = normalizeAnswer(userVal);
+    const variants = String(expectedStr).split(/,|\/|\bor\b/i).map(v => normalizeAnswer(v)).filter(Boolean);
+    if (variants.length === 0) return u === normalizeAnswer(expectedStr);
+    return variants.some(v => v === u);
+  }
+
   function formatTime(sec) {
     sec = Math.max(0, Math.ceil(sec || 0));
     const m = Math.floor(sec / 60);
@@ -388,8 +397,15 @@
       const isSel = ansCfg.inputType === 'select' || (Array.isArray(ansCfg.options) && ansCfg.options.length > 0);
       if (isSel) {
         const opts = (Array.isArray(ansCfg.options) && ansCfg.options.length) ? ansCfg.options : ['Yes', 'No'];
-        const optionsHtml = '<option value="">Select option…</option>' + opts.map(o => '<option value="' + escapeHtml(o) + '">' + escapeHtml(o) + '</option>').join('');
-        return '<span class="answer-box-container"><select class="tute-answer-input tute-answer-select" data-ans-id="' + escapeHtml(tagId) + '">' + optionsHtml + '</select><span class="ans-tag-label">' + escapeHtml(tagId) + '</span></span>';
+        const optionsHtml = opts.map((o, oIdx) => {
+          const idAttr = 'live_mcq_' + tagId + '_' + oIdx;
+          return '<label class="mcq-option-pill" for="' + idAttr + '">' +
+            '<input type="radio" id="' + idAttr + '" name="live_mcq_' + tagId + '" value="' + escapeHtml(o) + '" class="tute-answer-radio" data-ans-id="' + escapeHtml(tagId) + '">' +
+            '<span class="mcq-radio-custom"></span>' +
+            '<span class="mcq-option-text">' + escapeHtml(o) + '</span>' +
+            '</label>';
+        }).join('');
+        return '<div class="mcq-options-container" data-ans-id="' + escapeHtml(tagId) + '"><span class="ans-tag-label inline-tag">{{' + escapeHtml(tagId) + '}}</span><div class="mcq-options-grid">' + optionsHtml + '</div></div>';
       }
       return '<span class="answer-box-container"><input type="text" class="tute-answer-input" data-ans-id="' + escapeHtml(tagId) + '" placeholder="' + escapeHtml(tagId) + '" autocomplete="off" spellcheck="false"><span class="ans-tag-label">' + escapeHtml(tagId) + '</span></span>';
     });
@@ -550,7 +566,24 @@
     ids.forEach((id) => {
       const expected = answersMap[id] ? String(answersMap[id].correctAnswer || '').trim() : '';
       const checkbox = (questionBody || document).querySelector('input.tute-hs-checkbox[data-ans-id="' + id + '"]');
+      const checkedRadio = (questionBody || document).querySelector('input.tute-answer-radio[data-ans-id="' + id + '"]:checked');
+      const allRadios = (questionBody || document).querySelectorAll('input.tute-answer-radio[data-ans-id="' + id + '"]');
       const input    = (questionBody || document).querySelector('.tute-answer-input[data-ans-id="' + id + '"], .tute-answer-select[data-ans-id="' + id + '"], input.live-text-input[data-ans-id="' + id + '"]');
+
+      if (allRadios && allRadios.length > 0) {
+        allRadios.forEach(r => r.disabled = true);
+        const val = checkedRadio ? checkedRadio.value : '';
+        const ok = expected ? checkAnswerMatchMulti(val, expected) : Boolean(val.trim());
+        allRadios.forEach(r => {
+          const pill = r.closest('.mcq-option-pill');
+          if (pill) {
+            if (expected && checkAnswerMatchMulti(r.value, expected)) pill.classList.add('correct-target');
+            if (r.checked) pill.classList.add(ok ? 'status-correct' : 'status-incorrect');
+          }
+        });
+        if (!ok) { allCorrect = false; if (expected) missed.push(expected); }
+        return;
+      }
 
       if (checkbox && !input) {
         checkbox.disabled = true;
@@ -562,7 +595,7 @@
       }
       if (!input) return;
       input.disabled = true;
-      const ok = expected ? normalizeAnswer(input.value) === normalizeAnswer(expected) : Boolean(input.value.trim());
+      const ok = expected ? checkAnswerMatchMulti(input.value, expected) : Boolean(input.value.trim());
       input.classList.add(ok ? 'correct' : 'wrong');
       if (!ok) { allCorrect = false; if (expected) missed.push(expected); }
     });

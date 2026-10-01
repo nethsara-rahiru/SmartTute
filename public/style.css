@@ -2850,6 +2850,109 @@ body.dark-mode .q-badge-num {
     padding: 0.1rem 0.3rem;
     border-radius: 4px;
 }
+.ans-tag-label.inline-tag {
+    display: inline-block;
+    margin-bottom: 0.4rem;
+}
+
+/* Modern MCQ Radio Option Pill Cards */
+.mcq-options-container {
+    margin: 0.6rem 0 1rem;
+}
+
+.mcq-options-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 0.2rem;
+}
+
+.mcq-option-pill {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 1rem;
+    background: var(--surface-card, rgba(255, 255, 255, 0.05));
+    border: 2px solid var(--line, #334155);
+    border-radius: 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--ink, #f8fafc);
+}
+
+.paper-light .mcq-option-pill {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    color: #0f172a;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.mcq-option-pill:hover {
+    border-color: var(--blue, #3b82f6);
+    background: rgba(59, 130, 246, 0.08);
+    transform: translateY(-1px);
+}
+
+.mcq-option-pill input[type="radio"].tute-answer-radio {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.mcq-radio-custom {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--text-muted, #94a3b8);
+    position: relative;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.mcq-option-pill input[type="radio"]:checked ~ .mcq-radio-custom {
+    border-color: var(--blue, #3b82f6);
+    background: var(--blue, #3b82f6);
+}
+
+.mcq-option-pill input[type="radio"]:checked ~ .mcq-radio-custom::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #ffffff;
+}
+
+.mcq-option-pill:has(input[type="radio"]:checked) {
+    border-color: var(--blue, #3b82f6);
+    background: rgba(59, 130, 246, 0.12);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    font-weight: 600;
+}
+
+.mcq-option-pill.status-correct {
+    border-color: var(--accent-emerald, #10b981) !important;
+    background: rgba(16, 185, 129, 0.15) !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
+}
+
+.mcq-option-pill.status-incorrect {
+    border-color: var(--accent-rose, #f43f5e) !important;
+    background: rgba(244, 63, 94, 0.15) !important;
+    box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.25) !important;
+}
+
+.mcq-option-pill.correct-target {
+    border-style: dashed !important;
+    border-color: var(--accent-emerald, #10b981) !important;
+}
 
 .diagram-visual-box {
     margin: 1rem 0;

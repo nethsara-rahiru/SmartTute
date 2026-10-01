@@ -319,18 +319,19 @@ Answer: $n(A \\cup B) =$ {{answer2}}.`,
                         <label><i class="fa-solid fa-list-check"></i> Answer Input Type</label>
                         <select data-tag="${tagId}" class="select-ans-input-type drawer-select" style="padding: 4px 8px; font-size: 0.8rem; height: 32px;">
                             <option value="text" ${ansObj.inputType === 'text' ? 'selected' : ''}>Fill-in Text Box</option>
-                            <option value="select" ${ansObj.inputType === 'select' ? 'selected' : ''}>Dropdown / Radio Options (MCQ)</option>
+                            <option value="select" ${ansObj.inputType === 'select' ? 'selected' : ''}>Multiple Choice Options (MCQ Radio Cards)</option>
                         </select>
                     </div>
                     ${showOptionsInput ? `
                     <div class="ans-field-group">
                         <label><i class="fa-solid fa-square-poll-vertical"></i> Answer Options (comma separated)</label>
-                        <input type="text" data-tag="${tagId}" class="input-ans-options" placeholder="e.g. Yes, No  OR  A, B, C, D  OR  2, 3, 4" value="${escapeHtml(optionsValue)}">
+                        <input type="text" data-tag="${tagId}" class="input-ans-options" placeholder="e.g. Yes, No  OR  A, B, C, D  OR  True, False" value="${escapeHtml(optionsValue)}">
                     </div>
                     ` : ''}
                     <div class="ans-field-group">
-                        <label>Correct Answer / Choice</label>
-                        <input type="text" data-tag="${tagId}" class="input-correct-ans" placeholder="e.g. Yes or A or 5" value="${escapeHtml(ansObj.correctAnswer)}">
+                        <label>Correct Choice / Answer(s)</label>
+                        <input type="text" data-tag="${tagId}" class="input-correct-ans" placeholder="e.g. 5 / 0.6  OR  Yes / Y  OR  2, 3" value="${escapeHtml(ansObj.correctAnswer)}">
+                        <small style="font-size:0.7rem; color:var(--text-muted); display:block; margin-top:2px;">Separate multiple valid answers with <code>/</code>, <code>,</code>, or <code>or</code></small>
                     </div>
                     <div class="ans-field-group">
                         <label>Worked Solution (LaTeX)</label>
@@ -597,14 +598,23 @@ Answer: $n(A \\cup B) =$ {{answer2}}.`,
             }
         });
 
-        // 4. Replace {{answerX}} tags with clean interactive <input> or <select> fields
+        // 4. Replace {{answerX}} tags with clean interactive <input> or modern MCQ Radio options
         processed = processed.replace(/\{\{([a-zA-Z0-9_\-]+)\}\}/g, (fullMatch, tagId) => {
             const ansConfig = (answersMap && answersMap[tagId]) ? answersMap[tagId] : {};
             const isSelect = ansConfig.inputType === 'select' || (Array.isArray(ansConfig.options) && ansConfig.options.length > 0);
             if (isSelect) {
                 const opts = (Array.isArray(ansConfig.options) && ansConfig.options.length) ? ansConfig.options : ['Yes', 'No'];
-                const optionsHtml = `<option value="">Select option…</option>` + opts.map(o => `<option value="${escapeHtml(o)}">${escapeHtml(o)}</option>`).join('');
-                return `<span class="answer-box-container"><select class="tute-answer-input tute-answer-select" data-q-idx="${qIndex}" data-ans-id="${tagId}">${optionsHtml}</select><span class="ans-tag-label">${tagId}</span></span>`;
+                const optionsHtml = opts.map((o, oIdx) => {
+                    const idAttr = `mcq_${qIndex}_${tagId}_${oIdx}`;
+                    return `
+                        <label class="mcq-option-pill" for="${idAttr}">
+                            <input type="radio" id="${idAttr}" name="mcq_${qIndex}_${tagId}" value="${escapeHtml(o)}" class="tute-answer-radio" data-q-idx="${qIndex}" data-ans-id="${tagId}">
+                            <span class="mcq-radio-custom"></span>
+                            <span class="mcq-option-text">${escapeHtml(o)}</span>
+                        </label>
+                    `;
+                }).join('');
+                return `<div class="mcq-options-container" data-ans-id="${tagId}"><span class="ans-tag-label inline-tag">{{${tagId}}}</span><div class="mcq-options-grid">${optionsHtml}</div></div>`;
             }
             return `<span class="answer-box-container"><input type="text" class="tute-answer-input" data-q-idx="${qIndex}" data-ans-id="${tagId}" placeholder="${tagId}" autocomplete="off" spellcheck="false"><span class="ans-tag-label">${tagId}</span></span>`;
         });
@@ -1240,12 +1250,26 @@ Answer: $n(A \\cup B) =$ {{answer2}}.`,
                 const allocated = parseInt(q.answers[tagId].marks) || 2;
                 totalQuestionMarks += allocated;
 
-                // Find rendered input field
+                // Find rendered input field or radio card
                 const inputEl = document.querySelector(`.tute-answer-input[data-q-idx="${qIdx}"][data-ans-id="${tagId}"]`);
-                const userVal = inputEl ? inputEl.value.trim().toLowerCase() : "";
+                const checkedRadio = document.querySelector(`input.tute-answer-radio[data-q-idx="${qIdx}"][data-ans-id="${tagId}"]:checked`);
+                const allRadios = document.querySelectorAll(`input.tute-answer-radio[data-q-idx="${qIdx}"][data-ans-id="${tagId}"]`);
+                
+                const userVal = checkedRadio ? checkedRadio.value.trim().toLowerCase() : (inputEl ? inputEl.value.trim().toLowerCase() : "");
 
                 const isCorrect = checkAnswerMatch(userVal, expected);
                 
+                if (allRadios && allRadios.length > 0) {
+                    allRadios.forEach(r => {
+                        const pill = r.closest('.mcq-option-pill');
+                        if (pill) {
+                            pill.classList.remove('status-correct', 'status-incorrect', 'correct-target');
+                            if (expected && r.value.trim().toLowerCase() === expected) pill.classList.add('correct-target');
+                            if (r.checked) pill.classList.add(isCorrect ? 'status-correct' : 'status-incorrect');
+                        }
+                    });
+                }
+
                 if (inputEl) {
                     inputEl.classList.remove('status-correct', 'status-incorrect');
                     if (isCorrect) {
@@ -1301,22 +1325,24 @@ Answer: $n(A \\cup B) =$ {{answer2}}.`,
         scoreModalOverlay.style.display = 'flex';
     }
 
-    // Smart Answer Matcher (handles numbers, decimals, fractions like 3/5 = 0.6)
-    function checkAnswerMatch(userVal, expected) {
-        if (!userVal && !expected) return true;
-        if (!userVal) return false;
-        if (userVal === expected) return true;
+    // Smart Answer Matcher (handles multiple acceptable answers separated by /, comma, or 'or')
+    function checkSingleAnswerMatch(userVal, targetExp) {
+        if (!userVal && !targetExp) return true;
+        if (!userVal || !targetExp) return false;
+        const u = userVal.trim().toLowerCase();
+        const e = targetExp.trim().toLowerCase();
+        if (u === e) return true;
 
         // Try numeric conversion
-        const numUser = parseFloat(userVal);
-        const numExp = parseFloat(expected);
+        const numUser = parseFloat(u);
+        const numExp = parseFloat(e);
         if (!isNaN(numUser) && !isNaN(numExp) && Math.abs(numUser - numExp) < 0.01) {
             return true;
         }
 
         // Try fraction conversion e.g. "3/5" -> 0.6
-        if (userVal.includes('/')) {
-            const parts = userVal.split('/');
+        if (u.includes('/')) {
+            const parts = u.split('/');
             if (parts.length === 2) {
                 const val = parseFloat(parts[0]) / parseFloat(parts[1]);
                 if (!isNaN(val) && !isNaN(numExp) && Math.abs(val - numExp) < 0.01) return true;
@@ -1324,6 +1350,17 @@ Answer: $n(A \\cup B) =$ {{answer2}}.`,
         }
 
         return false;
+    }
+
+    function checkAnswerMatch(userVal, expectedStr) {
+        if (!userVal && !expectedStr) return true;
+        if (!userVal || !expectedStr) return false;
+
+        // Split expectedStr into acceptable variants by /, comma, or 'or'
+        const variants = expectedStr.split(/,|\/|\bor\b/i).map(v => v.trim()).filter(Boolean);
+        if (variants.length === 0) return checkSingleAnswerMatch(userVal, expectedStr);
+
+        return variants.some(variant => checkSingleAnswerMatch(userVal, variant));
     }
 
     // Modal Action Buttons
