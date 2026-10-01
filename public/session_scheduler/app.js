@@ -1,56 +1,83 @@
 /**
  * SmartTute — Session Scheduler
  * Schedule saved classes: start time, join window, playback mode, publish & share.
+ * All session data is persisted in MongoDB via /api/sessions.
+ * Classes are fetched from /api/classes with localStorage fallback.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
     const CLASS_STORE_KEY = 'smarttute_published_classes';
-    const SESSION_STORE_KEY = 'smarttute_sessions';
 
     let classes = [];
     let sessions = [];
     let editingSessionId = null;
     let sessionToDeleteId = null;
 
-    const classSelect = document.getElementById('classSelect');
-    const sessionTitleInput = document.getElementById('sessionTitleInput');
-    const startDateInput = document.getElementById('startDateInput');
-    const startTimeInput = document.getElementById('startTimeInput');
-    const waitingPeriodInput = document.getElementById('waitingPeriodInput');
-    const sessionForm = document.getElementById('sessionForm');
-    const formHeading = document.getElementById('formHeading');
-    const btnNewSession = document.getElementById('btnNewSession');
-    const btnPublishSession = document.getElementById('btnPublishSession');
-    const sessionsList = document.getElementById('sessionsList');
-    const emptyState = document.getElementById('emptyState');
-    const emptyMessage = document.getElementById('emptyMessage');
-    const searchInput = document.getElementById('searchInput');
-    const statSessions = document.getElementById('statSessions');
+    /* ── DOM refs ─────────────────────────────────────────── */
+    const classSelect         = document.getElementById('classSelect');
+    const sessionTitleInput   = document.getElementById('sessionTitleInput');
+    const startDateInput      = document.getElementById('startDateInput');
+    const startTimeInput      = document.getElementById('startTimeInput');
+    const waitingPeriodInput  = document.getElementById('waitingPeriodInput');
+    const sessionForm         = document.getElementById('sessionForm');
+    const formHeading         = document.getElementById('formHeading');
+    const btnNewSession       = document.getElementById('btnNewSession');
+    const btnPublishSession   = document.getElementById('btnPublishSession');
+    const sessionsList        = document.getElementById('sessionsList');
+    const emptyState          = document.getElementById('emptyState');
+    const emptyMessage        = document.getElementById('emptyMessage');
+    const searchInput         = document.getElementById('searchInput');
+    const statSessions        = document.getElementById('statSessions');
 
-    const shareModal = document.getElementById('shareModal');
-    const shareModalTitle = document.getElementById('shareModalTitle');
-    const shareModalCopy = document.getElementById('shareModalCopy');
-    const shareQrImage = document.getElementById('shareQrImage');
-    const shareSessionId = document.getElementById('shareSessionId');
-    const shareSessionUrl = document.getElementById('shareSessionUrl');
-    const shareMeta = document.getElementById('shareMeta');
-    const btnCopySessionId = document.getElementById('btnCopySessionId');
-    const btnCopySessionUrl = document.getElementById('btnCopySessionUrl');
-    const btnCloseShare = document.getElementById('btnCloseShare');
-    const btnOpenLive = document.getElementById('btnOpenLive');
+    // Mode toggle
+    const modeScheduled       = document.getElementById('modeScheduled');
+    const modeOpenAnytime     = document.getElementById('modeOpenAnytime');
+    const scheduledFields     = document.getElementById('scheduledFields');
+    const openAnytimeFields   = document.getElementById('openAnytimeFields');
+    const openFromInput       = document.getElementById('openFromInput');
+    const openUntilInput      = document.getElementById('openUntilInput');
+    const isOpenToggle        = document.getElementById('isOpenToggle');
+    const isOpenLabel         = document.getElementById('isOpenLabel');
 
-    const deleteModal = document.getElementById('deleteModal');
-    const deleteSessionTitle = document.getElementById('deleteSessionTitle');
-    const btnCancelDelete = document.getElementById('btnCancelDelete');
-    const btnConfirmDelete = document.getElementById('btnConfirmDelete');
+    // Share modal
+    const shareModal          = document.getElementById('shareModal');
+    const shareModalTitle     = document.getElementById('shareModalTitle');
+    const shareModalCopy      = document.getElementById('shareModalCopy');
+    const shareQrImage        = document.getElementById('shareQrImage');
+    const shareSessionId      = document.getElementById('shareSessionId');
+    const shareSessionUrl     = document.getElementById('shareSessionUrl');
+    const shareMeta           = document.getElementById('shareMeta');
+    const btnCopySessionId    = document.getElementById('btnCopySessionId');
+    const btnCopySessionUrl   = document.getElementById('btnCopySessionUrl');
+    const btnCloseShare       = document.getElementById('btnCloseShare');
+    const btnOpenLive         = document.getElementById('btnOpenLive');
 
-    const menuButton = document.getElementById('menuButton');
-    const sideMenu = document.getElementById('sideMenu');
-    const closeMenu = document.getElementById('closeMenu');
-    const menuBackdrop = document.getElementById('menuBackdrop');
-    const themeToggle = document.getElementById('themeToggle');
+    // Delete modal
+    const deleteModal         = document.getElementById('deleteModal');
+    const deleteSessionTitle  = document.getElementById('deleteSessionTitle');
+    const btnCancelDelete     = document.getElementById('btnCancelDelete');
+    const btnConfirmDelete    = document.getElementById('btnConfirmDelete');
 
-    /* Theme & nav */
+    // Nav / Theme
+    const menuButton    = document.getElementById('menuButton');
+    const sideMenu      = document.getElementById('sideMenu');
+    const closeMenu     = document.getElementById('closeMenu');
+    const menuBackdrop  = document.getElementById('menuBackdrop');
+    const themeToggle   = document.getElementById('themeToggle');
+
+    // Preview card
+    const summaryEmptyState  = document.getElementById('summaryEmptyState');
+    const summaryContent     = document.getElementById('summaryContent');
+    const summaryThumb       = document.getElementById('summaryThumb');
+    const summaryCpCount     = document.getElementById('summaryCpCount');
+    const summaryClassTitle  = document.getElementById('summaryClassTitle');
+    const summaryTuteName    = document.getElementById('summaryTuteName');
+    const summaryStartTime   = document.getElementById('summaryStartTime');
+    const summaryJoinWindow  = document.getElementById('summaryJoinWindow');
+    const summaryMode        = document.getElementById('summaryMode');
+    const previewStatus      = document.getElementById('previewStatus');
+
+    /* ── Theme & Nav ─────────────────────────────────────── */
     const savedTheme = localStorage.getItem('smarttute_theme') || 'light';
     if (savedTheme === 'dark') {
         document.body.classList.add('dark-mode', 'dark-theme');
@@ -75,45 +102,45 @@ document.addEventListener('DOMContentLoaded', () => {
         menuBackdrop.addEventListener('click', () => toggleMenu(false));
     }
 
-    /* Storage helpers */
-    function readJsonStore(key) {
-        try { return JSON.parse(localStorage.getItem(key) || '{}') || {}; }
-        catch (e) { return {}; }
+    /* ── API helpers ─────────────────────────────────────── */
+    async function apiFetch(path, options = {}) {
+        const res = await fetch(path, {
+            headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+            ...options,
+            body: options.body ? JSON.stringify(options.body) : undefined
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
+        return data;
     }
 
-    function writeJsonStore(key, store) {
-        localStorage.setItem(key, JSON.stringify(store));
-    }
-
+    /* ── Load classes (API first, localStorage fallback) ─── */
     async function loadClasses() {
+        let apiClasses = [];
+        try {
+            apiClasses = await apiFetch('/api/classes');
+        } catch (e) {
+            console.warn('API classes unavailable, using localStorage fallback:', e.message);
+        }
+
         let localClasses = [];
         try {
             const raw = localStorage.getItem(CLASS_STORE_KEY);
             if (raw) {
                 const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed)) {
-                    localClasses = parsed;
-                } else if (typeof parsed === 'object' && parsed !== null) {
-                    localClasses = Object.values(parsed);
-                }
+                if (Array.isArray(parsed)) localClasses = parsed;
+                else if (typeof parsed === 'object' && parsed !== null) localClasses = Object.values(parsed);
             }
         } catch (e) {
             console.error('Error reading local class store:', e);
         }
 
-        let apiClasses = [];
-        // Optional backend API endpoint reserved for future MongoDB sync
-
-        // Merge local and API classes by classId
         const map = new Map();
-        [...localClasses, ...apiClasses].forEach((c) => {
+        [...apiClasses, ...localClasses].forEach((c) => {
             if (c && (c.classId || c._id)) {
                 const id = c.classId || c._id;
-                if (String(id).indexOf('ST-TEST-') !== 0) {
-                    map.set(id, {
-                        ...c,
-                        classId: id
-                    });
+                if (!String(id).startsWith('ST-TEST-')) {
+                    map.set(id, { ...c, classId: id });
                 }
             }
         });
@@ -121,27 +148,47 @@ document.addEventListener('DOMContentLoaded', () => {
         classes = Array.from(map.values()).sort(
             (a, b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0)
         );
-
         populateClassSelect();
     }
 
-    function loadSessions() {
-        const store = readJsonStore(SESSION_STORE_KEY);
-        sessions = Object.values(store).filter((s) => s && s.sessionId);
+    /* ── Load sessions from API ──────────────────────────── */
+    async function loadSessions() {
+        try {
+            sessions = await apiFetch('/api/sessions');
+        } catch (e) {
+            console.error('Failed to load sessions:', e.message);
+            sessions = [];
+        }
         renderSessions();
     }
 
+    /* ── Session mode helpers ────────────────────────────── */
+    function getMode() {
+        return modeOpenAnytime && modeOpenAnytime.checked ? 'open_anytime' : 'scheduled';
+    }
+
+    function setMode(mode) {
+        const isOpen = mode === 'open_anytime';
+        if (modeScheduled)    modeScheduled.checked    = !isOpen;
+        if (modeOpenAnytime)  modeOpenAnytime.checked  = isOpen;
+        if (scheduledFields)  scheduledFields.classList.toggle('hidden', isOpen);
+        if (openAnytimeFields) openAnytimeFields.classList.toggle('hidden', !isOpen);
+        updatePreviewCard();
+    }
+
+    if (modeScheduled)   modeScheduled.addEventListener('change', () => setMode('scheduled'));
+    if (modeOpenAnytime) modeOpenAnytime.addEventListener('change', () => setMode('open_anytime'));
+
+    /* ── Class selector ─────────────────────────────────── */
     function populateClassSelect() {
         if (!classSelect) return;
         const preset = new URLSearchParams(window.location.search).get('classId') || classSelect.value;
         classSelect.innerHTML = '<option value="">-- Select Class Blueprint --</option>';
 
         if (classes.length === 0) {
-            // Provide informative option if no saved classes exist
             const emptyOpt = document.createElement('option');
-            emptyOpt.value = "";
             emptyOpt.disabled = true;
-            emptyOpt.textContent = "No saved classes found (Create one in Class Organizer)";
+            emptyOpt.textContent = 'No saved classes found — create one in Class Organizer';
             classSelect.appendChild(emptyOpt);
             updatePreviewCard();
             return;
@@ -164,28 +211,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    const summaryEmptyState = document.getElementById('summaryEmptyState');
-    const summaryContent = document.getElementById('summaryContent');
-    const summaryThumb = document.getElementById('summaryThumb');
-    const summaryCpCount = document.getElementById('summaryCpCount');
-    const summaryClassTitle = document.getElementById('summaryClassTitle');
-    const summaryTuteName = document.getElementById('summaryTuteName');
-    const summaryStartTime = document.getElementById('summaryStartTime');
-    const summaryJoinWindow = document.getElementById('summaryJoinWindow');
-    const summaryMode = document.getElementById('summaryMode');
-    const previewStatus = document.getElementById('previewStatus');
-
+    /* ── Preview card ───────────────────────────────────── */
     function updatePreviewCard() {
-        const cls = classes.find((c) => c.classId === classSelect.value);
+        const cls = classes.find((c) => c.classId === (classSelect && classSelect.value));
         if (!cls) {
             if (summaryEmptyState) summaryEmptyState.classList.remove('hidden');
-            if (summaryContent) summaryContent.classList.add('hidden');
-            if (previewStatus) previewStatus.textContent = 'Draft';
+            if (summaryContent)   summaryContent.classList.add('hidden');
+            if (previewStatus)    previewStatus.textContent = 'Draft';
             return;
         }
 
         if (summaryEmptyState) summaryEmptyState.classList.add('hidden');
-        if (summaryContent) summaryContent.classList.remove('hidden');
+        if (summaryContent)   summaryContent.classList.remove('hidden');
 
         if (summaryClassTitle) summaryClassTitle.textContent = cls.title || 'Untitled Class';
         if (summaryTuteName) {
@@ -198,15 +235,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const vid = cls.videoId || 'M7lc1UVf-VE';
         if (summaryThumb) summaryThumb.src = 'https://img.youtube.com/vi/' + vid + '/hqdefault.jpg';
 
-        if (startDateInput && startTimeInput && startDateInput.value && startTimeInput.value) {
-            const dt = combineLocalDateTime(startDateInput.value, startTimeInput.value);
-            if (!isNaN(dt.getTime())) {
-                if (summaryStartTime) summaryStartTime.textContent = formatWhen(dt.toISOString());
+        const mode = getMode();
+        if (mode === 'scheduled') {
+            if (startDateInput && startTimeInput && startDateInput.value && startTimeInput.value) {
+                const dt = combineLocalDateTime(startDateInput.value, startTimeInput.value);
+                if (!isNaN(dt.getTime()) && summaryStartTime) summaryStartTime.textContent = formatWhen(dt.toISOString());
             }
-        }
-
-        if (summaryJoinWindow && waitingPeriodInput) {
-            summaryJoinWindow.textContent = (waitingPeriodInput.value || 15) + ' min';
+            if (summaryJoinWindow && waitingPeriodInput) summaryJoinWindow.textContent = (waitingPeriodInput.value || 15) + ' min';
+        } else {
+            if (summaryStartTime) summaryStartTime.textContent = 'Open Anytime';
+            if (summaryJoinWindow) summaryJoinWindow.textContent = '—';
         }
 
         if (summaryMode) {
@@ -217,52 +255,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function autofillTitleFromClass() {
-        const cls = classes.find((c) => c.classId === classSelect.value);
+        const cls = classes.find((c) => c.classId === (classSelect && classSelect.value));
         if (cls && sessionTitleInput && !sessionTitleInput.value.trim()) {
             sessionTitleInput.value = cls.title || '';
         }
         updatePreviewCard();
     }
 
-    if (classSelect) {
-        classSelect.addEventListener('change', autofillTitleFromClass);
-    }
-
-    if (startDateInput) startDateInput.addEventListener('change', updatePreviewCard);
-    if (startTimeInput) startTimeInput.addEventListener('change', updatePreviewCard);
-    if (waitingPeriodInput) waitingPeriodInput.addEventListener('input', updatePreviewCard);
+    if (classSelect)          classSelect.addEventListener('change', autofillTitleFromClass);
+    if (startDateInput)       startDateInput.addEventListener('change', updatePreviewCard);
+    if (startTimeInput)       startTimeInput.addEventListener('change', updatePreviewCard);
+    if (waitingPeriodInput)   waitingPeriodInput.addEventListener('input', updatePreviewCard);
     document.querySelectorAll('input[name="playbackMode"]').forEach(r => r.addEventListener('change', updatePreviewCard));
 
-    /* Quick Presets */
+    /* ── Quick Presets ──────────────────────────────────── */
     document.querySelectorAll('.preset-pill').forEach(btn => {
         btn.addEventListener('click', () => {
-            const addMin = Number(btn.dataset.minutes) || 0;
+            const addMin  = Number(btn.dataset.minutes) || 0;
             const addDays = Number(btn.dataset.days) || 0;
 
             let base = new Date();
-            if (startDateInput.value && startTimeInput.value) {
+            if (startDateInput && startTimeInput && startDateInput.value && startTimeInput.value) {
                 const existing = combineLocalDateTime(startDateInput.value, startTimeInput.value);
                 if (!isNaN(existing.getTime())) base = existing;
             }
-
-            if (addMin) base.setMinutes(base.getMinutes() + addMin);
+            if (addMin)  base.setMinutes(base.getMinutes() + addMin);
             if (addDays) base.setDate(base.getDate() + addDays);
 
             if (startDateInput) {
-                const y = base.getFullYear();
-                const m = String(base.getMonth() + 1).padStart(2, '0');
-                const d = String(base.getDate()).padStart(2, '0');
-                startDateInput.value = y + '-' + m + '-' + d;
+                startDateInput.value = base.getFullYear() + '-' +
+                    String(base.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(base.getDate()).padStart(2, '0');
             }
             if (startTimeInput) {
-                startTimeInput.value =
-                    String(base.getHours()).padStart(2, '0') + ':' +
+                startTimeInput.value = String(base.getHours()).padStart(2, '0') + ':' +
                     String(base.getMinutes()).padStart(2, '0');
             }
             updatePreviewCard();
         });
     });
 
+    /* ── Playback mode ──────────────────────────────────── */
     function getPlaybackMode() {
         const checked = document.querySelector('input[name="playbackMode"]:checked');
         return checked ? checked.value : 'from_start';
@@ -273,44 +306,50 @@ document.addEventListener('DOMContentLoaded', () => {
         if (el) el.checked = true;
     }
 
+    /* ── Date/Time helpers ──────────────────────────────── */
     function defaultDateTime() {
         const now = new Date();
         now.setMinutes(now.getMinutes() + 30 - (now.getMinutes() % 5));
         now.setSeconds(0, 0);
         if (startDateInput) startDateInput.value = now.toISOString().slice(0, 10);
         if (startTimeInput) {
-            const hh = String(now.getHours()).padStart(2, '0');
-            const mm = String(now.getMinutes()).padStart(2, '0');
-            startTimeInput.value = hh + ':' + mm;
+            startTimeInput.value = String(now.getHours()).padStart(2, '0') + ':' +
+                String(now.getMinutes()).padStart(2, '0');
         }
     }
 
     function combineLocalDateTime(dateStr, timeStr) {
         const [y, m, d] = dateStr.split('-').map(Number);
-        const [hh, mm] = timeStr.split(':').map(Number);
+        const [hh, mm]  = timeStr.split(':').map(Number);
         return new Date(y, m - 1, d, hh, mm || 0, 0, 0);
     }
 
     function formatWhen(iso) {
         try {
             return new Date(iso).toLocaleString(undefined, {
-                weekday: 'short',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
+                weekday: 'short', month: 'short', day: 'numeric',
+                hour: '2-digit', minute: '2-digit'
             });
-        } catch (e) {
-            return iso;
-        }
+        } catch (e) { return iso; }
     }
 
+    /* ── Session status ─────────────────────────────────── */
     function sessionStatus(session) {
         const now = Date.now();
+
+        if (session.mode === 'open_anytime') {
+            const fromOk  = !session.openFrom  || now >= new Date(session.openFrom).getTime();
+            const untilOk = !session.openUntil || now <= new Date(session.openUntil).getTime();
+            if (session.isOpen && fromOk && untilOk) return { key: 'open',     label: 'Open' };
+            if (!session.isOpen)                     return { key: 'closed',   label: 'Closed' };
+            if (!fromOk)                              return { key: 'upcoming', label: 'Not yet open' };
+            return { key: 'closed', label: 'Period ended' };
+        }
+
         const start = new Date(session.startAt).getTime();
         const close = start + (Number(session.waitingPeriodMinutes) || 15) * 60 * 1000;
-        if (now < start) return { key: 'upcoming', label: 'Upcoming' };
-        if (now <= close) return { key: 'open', label: 'Join open' };
+        if (now < start)  return { key: 'upcoming', label: 'Upcoming' };
+        if (now <= close) return { key: 'open',     label: 'Join open' };
         return { key: 'closed', label: 'Join closed' };
     }
 
@@ -318,16 +357,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return window.location.origin + '/live_class/index.html?sessionId=' + encodeURIComponent(sessionId);
     }
 
+    /* ── Form reset / fill ──────────────────────────────── */
     function resetForm() {
         editingSessionId = null;
-        if (formHeading) formHeading.textContent = 'Schedule Live Session';
-        if (btnPublishSession) {
-            btnPublishSession.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Publish &amp; Launch Session';
-        }
-        if (btnNewSession) btnNewSession.classList.add('hidden');
-        if (sessionForm) sessionForm.reset();
+        if (formHeading)      formHeading.textContent = 'Schedule Live Session';
+        if (btnPublishSession) btnPublishSession.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Publish &amp; Launch Session';
+        if (btnNewSession)    btnNewSession.classList.add('hidden');
+        if (sessionForm)      sessionForm.reset();
         if (waitingPeriodInput) waitingPeriodInput.value = '15';
         setPlaybackMode('from_start');
+        setMode('scheduled');
         defaultDateTime();
         const preset = new URLSearchParams(window.location.search).get('classId');
         if (preset && classSelect) classSelect.value = preset;
@@ -337,29 +376,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function fillForm(session) {
         editingSessionId = session.sessionId;
-        if (formHeading) formHeading.textContent = 'Edit Session';
-        if (btnPublishSession) {
-            btnPublishSession.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update &amp; Launch';
-        }
-        if (btnNewSession) btnNewSession.classList.remove('hidden');
+        if (formHeading)      formHeading.textContent = 'Edit Session';
+        if (btnPublishSession) btnPublishSession.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Update &amp; Launch';
+        if (btnNewSession)    btnNewSession.classList.remove('hidden');
 
-        if (classSelect) classSelect.value = session.classId || '';
-        if (sessionTitleInput) sessionTitleInput.value = session.title || '';
+        if (classSelect)        classSelect.value        = session.classId || '';
+        if (sessionTitleInput)  sessionTitleInput.value  = session.title || '';
         if (waitingPeriodInput) waitingPeriodInput.value = session.waitingPeriodMinutes || 15;
         setPlaybackMode(session.playbackMode === 'sync' ? 'sync' : 'from_start');
+        setMode(session.mode || 'scheduled');
 
-        const start = new Date(session.startAt);
-        if (!isNaN(start.getTime())) {
-            if (startDateInput) {
-                const y = start.getFullYear();
-                const m = String(start.getMonth() + 1).padStart(2, '0');
-                const d = String(start.getDate()).padStart(2, '0');
-                startDateInput.value = y + '-' + m + '-' + d;
-            }
-            if (startTimeInput) {
-                startTimeInput.value =
-                    String(start.getHours()).padStart(2, '0') + ':' +
-                    String(start.getMinutes()).padStart(2, '0');
+        if (session.mode === 'open_anytime') {
+            if (openFromInput  && session.openFrom)  openFromInput.value  = session.openFrom.slice(0, 10);
+            if (openUntilInput && session.openUntil) openUntilInput.value = session.openUntil.slice(0, 10);
+            if (isOpenToggle)  isOpenToggle.checked = !!session.isOpen;
+            if (isOpenLabel)   isOpenLabel.textContent = session.isOpen ? 'Open — students can join now' : 'Closed — students cannot join';
+        } else {
+            const start = new Date(session.startAt);
+            if (!isNaN(start.getTime())) {
+                if (startDateInput) {
+                    startDateInput.value = start.getFullYear() + '-' +
+                        String(start.getMonth() + 1).padStart(2, '0') + '-' +
+                        String(start.getDate()).padStart(2, '0');
+                }
+                if (startTimeInput) {
+                    startTimeInput.value = String(start.getHours()).padStart(2, '0') + ':' +
+                        String(start.getMinutes()).padStart(2, '0');
+                }
             }
         }
         updatePreviewCard();
@@ -367,84 +410,127 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnNewSession) btnNewSession.addEventListener('click', resetForm);
 
-    /* Publish / update */
+    /* ── Open/Closed live toggle (on form for editing) ─── */
+    if (isOpenToggle) {
+        isOpenToggle.addEventListener('change', () => {
+            const open = isOpenToggle.checked;
+            if (isOpenLabel) isOpenLabel.textContent = open ? 'Open — students can join now' : 'Closed — students cannot join';
+        });
+    }
+
+    /* ── Publish / Update ───────────────────────────────── */
     if (sessionForm) {
-        sessionForm.addEventListener('submit', (e) => {
+        sessionForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const classId = classSelect ? classSelect.value : '';
             const cls = classes.find((c) => c.classId === classId);
             if (!cls) {
-                alert('Select a saved class from Class Organizer first.');
+                showToast('⚠ Select a saved class first.', true);
                 return;
             }
 
-            const dateStr = startDateInput.value;
-            const timeStr = startTimeInput.value;
-            if (!dateStr || !timeStr) {
-                alert('Set both date and start time.');
-                return;
-            }
-
-            const startAt = combineLocalDateTime(dateStr, timeStr);
-            if (isNaN(startAt.getTime())) {
-                alert('Invalid date or time.');
-                return;
-            }
-
-            const waiting = Math.max(1, parseInt(waitingPeriodInput.value, 10) || 15);
+            const mode = getMode();
             const playbackMode = getPlaybackMode();
-            const sessionId = editingSessionId || ('ST-SESSION-' + Math.floor(1000 + Math.random() * 9000));
 
-            const session = {
-                sessionId,
-                classId: cls.classId,
-                classTitle: cls.title || '',
-                title: (sessionTitleInput.value || '').trim() || cls.title || 'Untitled Session',
-                startAt: startAt.toISOString(),
-                waitingPeriodMinutes: waiting,
+            let payload = {
+                classId:      cls.classId,
+                classTitle:   cls.title || '',
+                title:        (sessionTitleInput && sessionTitleInput.value.trim()) || cls.title || 'Untitled Session',
+                mode,
                 playbackMode,
-                publishedAt: new Date().toISOString(),
-                videoId: cls.videoId,
+                publishedAt:  new Date().toISOString(),
+                videoId:      cls.videoId,
                 checkpointCount: Array.isArray(cls.checkpoints) ? cls.checkpoints.length : 0
             };
 
-            const store = readJsonStore(SESSION_STORE_KEY);
-            store[sessionId] = session;
-            writeJsonStore(SESSION_STORE_KEY, store);
+            if (mode === 'scheduled') {
+                const dateStr = startDateInput && startDateInput.value;
+                const timeStr = startTimeInput && startTimeInput.value;
+                if (!dateStr || !timeStr) {
+                    showToast('⚠ Set both date and start time.', true);
+                    return;
+                }
+                const startAt = combineLocalDateTime(dateStr, timeStr);
+                if (isNaN(startAt.getTime())) {
+                    showToast('⚠ Invalid date or time.', true);
+                    return;
+                }
+                payload.startAt             = startAt.toISOString();
+                payload.waitingPeriodMinutes = Math.max(1, parseInt((waitingPeriodInput && waitingPeriodInput.value) || '15', 10));
+            } else {
+                payload.openFrom  = (openFromInput  && openFromInput.value)  ? openFromInput.value  : null;
+                payload.openUntil = (openUntilInput && openUntilInput.value) ? openUntilInput.value : null;
+                payload.isOpen    = isOpenToggle ? isOpenToggle.checked : false;
+            }
 
-            editingSessionId = sessionId;
-            loadSessions();
-            openShareModal(session, true);
+            // Disable button, show loading
+            if (btnPublishSession) {
+                btnPublishSession.disabled = true;
+                btnPublishSession.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving…';
+            }
 
-            const url = new URL(window.location.href);
-            url.searchParams.set('sessionId', sessionId);
-            window.history.replaceState({}, '', url);
+            try {
+                let session;
+                if (editingSessionId) {
+                    session = await apiFetch('/api/sessions/' + editingSessionId, { method: 'PUT', body: payload });
+                } else {
+                    session = await apiFetch('/api/sessions', { method: 'POST', body: payload });
+                }
+
+                editingSessionId = session.sessionId;
+                await loadSessions();
+                openShareModal(session, !editingSessionId);
+
+                const url = new URL(window.location.href);
+                url.searchParams.set('sessionId', session.sessionId);
+                window.history.replaceState({}, '', url);
+
+            } catch (err) {
+                showToast('⚠ ' + (err.message || 'Failed to save session.'), true);
+            } finally {
+                if (btnPublishSession) {
+                    btnPublishSession.disabled = false;
+                    btnPublishSession.innerHTML = editingSessionId
+                        ? '<i class="fa-solid fa-floppy-disk"></i> Update &amp; Launch'
+                        : '<i class="fa-solid fa-paper-plane"></i> Publish &amp; Launch Session';
+                }
+            }
         });
     }
 
+    /* ── Share modal ────────────────────────────────────── */
     function openShareModal(session, justPublished) {
         const url = studentUrl(session.sessionId);
-        if (shareModalTitle) {
-            shareModalTitle.textContent = justPublished ? 'Session Published!' : 'Share Session';
-        }
+        if (shareModalTitle) shareModalTitle.textContent = justPublished ? 'Session Published!' : 'Share Session';
+
         if (shareModalCopy) {
-            shareModalCopy.textContent =
-                'Join window: from ' + formatWhen(session.startAt) +
-                ' for ' + session.waitingPeriodMinutes + ' min. Playback: ' +
-                (session.playbackMode === 'sync' ? 'sync with main class' : 'from the beginning') + '.';
+            if (session.mode === 'open_anytime') {
+                shareModalCopy.textContent = 'Students can join any time this session is open. Share the link below.';
+            } else {
+                shareModalCopy.textContent =
+                    'Join window: from ' + formatWhen(session.startAt) +
+                    ' for ' + session.waitingPeriodMinutes + ' min. Playback: ' +
+                    (session.playbackMode === 'sync' ? 'synced to main class' : 'from the beginning') + '.';
+            }
         }
-        if (shareSessionId) shareSessionId.value = session.sessionId;
+
+        if (shareSessionId)  shareSessionId.value  = session.sessionId;
         if (shareSessionUrl) shareSessionUrl.value = url;
-        if (shareQrImage) {
-            shareQrImage.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(url);
-        }
-        if (btnOpenLive) btnOpenLive.href = url;
+        if (shareQrImage)    shareQrImage.src       = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(url);
+        if (btnOpenLive)     btnOpenLive.href       = url;
+
         if (shareMeta) {
-            shareMeta.innerHTML =
-                '<p><strong>Class:</strong> ' + escapeHtml(session.classTitle || session.classId) + '</p>' +
-                '<p><strong>Starts:</strong> ' + escapeHtml(formatWhen(session.startAt)) + '</p>';
+            let metaHtml = '<p><strong>Class:</strong> ' + escapeHtml(session.classTitle || session.classId) + '</p>';
+            if (session.mode === 'open_anytime') {
+                metaHtml += '<p><strong>Mode:</strong> <span class="badge-open-anytime">Open Anytime</span></p>';
+                metaHtml += '<p><strong>Status:</strong> ' + (session.isOpen ? '🟢 Currently open' : '🔴 Currently closed') + '</p>';
+            } else {
+                metaHtml += '<p><strong>Starts:</strong> ' + escapeHtml(formatWhen(session.startAt)) + '</p>';
+            }
+            shareMeta.innerHTML = metaHtml;
         }
+
         if (shareModal) shareModal.classList.remove('hidden');
     }
 
@@ -459,18 +545,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function showToast(msg) {
-        const t = document.createElement('div');
-        t.className = 'studio-toast';
-        t.textContent = msg;
-        document.body.appendChild(t);
-        requestAnimationFrame(() => t.classList.add('show'));
-        setTimeout(() => {
-            t.classList.remove('show');
-            setTimeout(() => t.remove(), 300);
-        }, 1800);
-    }
-
+    /* ── Copy buttons ───────────────────────────────────── */
     if (btnCopySessionId) {
         btnCopySessionId.addEventListener('click', () => {
             navigator.clipboard.writeText(shareSessionId.value).then(() => showToast('Session ID copied!'));
@@ -482,11 +557,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    /* List */
+    /* ── Sessions list render ───────────────────────────── */
     function renderSessions() {
         if (!sessionsList) return;
         const query = (searchInput && searchInput.value.toLowerCase().trim()) || '';
-        let list = sessions.slice().sort((a, b) => new Date(b.startAt) - new Date(a.startAt));
+        let list = sessions.slice().sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+
         if (query) {
             list = list.filter((s) =>
                 (s.title || '').toLowerCase().includes(query) ||
@@ -504,7 +580,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 emptyState.classList.remove('hidden');
                 if (emptyMessage) {
                     emptyMessage.textContent = query
-                        ? 'No sessions matched “' + searchInput.value.trim() + '”.'
+                        ? 'No sessions matched "' + (searchInput && searchInput.value.trim()) + '".'
                         : 'Schedule your first live session using a saved class from the form.';
                 }
             }
@@ -514,28 +590,70 @@ document.addEventListener('DOMContentLoaded', () => {
         if (emptyState) emptyState.classList.add('hidden');
 
         list.forEach((session) => {
-            const status = sessionStatus(session);
-            const card = document.createElement('article');
+            const status   = sessionStatus(session);
+            const isOA     = session.mode === 'open_anytime';
+            const pCount   = Array.isArray(session.participants) ? session.participants.length : 0;
+            const card     = document.createElement('article');
             card.className = 'session-card';
+
+            let metaHtml = '';
+            if (isOA) {
+                metaHtml = '<span><i class="fa-solid fa-infinity"></i> Open Anytime</span>';
+                if (session.openFrom)  metaHtml += '<span><i class="fa-solid fa-calendar-check"></i> From ' + formatWhen(session.openFrom) + '</span>';
+                if (session.openUntil) metaHtml += '<span><i class="fa-solid fa-calendar-xmark"></i> Until ' + formatWhen(session.openUntil) + '</span>';
+            } else {
+                metaHtml =
+                    '<span><i class="fa-solid fa-calendar"></i> ' + escapeHtml(formatWhen(session.startAt)) + '</span>' +
+                    '<span><i class="fa-solid fa-hourglass-half"></i> ' + (session.waitingPeriodMinutes || 15) + ' min window</span>' +
+                    '<span><i class="fa-solid fa-' + (session.playbackMode === 'sync' ? 'satellite-dish' : 'backward-step') + '"></i> ' +
+                    (session.playbackMode === 'sync' ? 'Synced' : 'From start') + '</span>';
+            }
+
+            // Open/Closed toggle for open_anytime cards
+            const toggleHtml = isOA
+                ? '<label class="oa-toggle-label" title="Toggle class open/closed">' +
+                  '<input type="checkbox" class="oa-toggle" ' + (session.isOpen ? 'checked' : '') + '>' +
+                  '<span class="oa-toggle-track"><span class="oa-toggle-thumb"></span></span>' +
+                  '<span class="oa-toggle-text">' + (session.isOpen ? 'Open' : 'Closed') + '</span>' +
+                  '</label>'
+                : '';
+
             card.innerHTML =
                 '<div class="session-card-top">' +
                 '<span class="session-status status-' + status.key + '">' + status.label + '</span>' +
                 '<span class="session-id">' + escapeHtml(session.sessionId) + '</span>' +
+                (isOA ? '<span class="mode-badge mode-oa"><i class="fa-solid fa-infinity"></i> Open Anytime</span>' : '<span class="mode-badge mode-sched"><i class="fa-solid fa-clock"></i> Scheduled</span>') +
                 '</div>' +
                 '<h3 class="session-title">' + escapeHtml(session.title || 'Untitled Session') + '</h3>' +
-                '<p class="session-meta">' +
-                '<span><i class="fa-solid fa-calendar"></i> ' + escapeHtml(formatWhen(session.startAt)) + '</span>' +
-                '<span><i class="fa-solid fa-hourglass-half"></i> ' + (session.waitingPeriodMinutes || 15) + ' min window</span>' +
-                '<span><i class="fa-solid fa-' + (session.playbackMode === 'sync' ? 'satellite-dish' : 'backward-step') + '"></i> ' +
-                (session.playbackMode === 'sync' ? 'Synced' : 'From start') + '</span>' +
-                '</p>' +
-                '<p class="session-class"><i class="fa-solid fa-clapperboard"></i> ' +
-                escapeHtml(session.classTitle || session.classId) + '</p>' +
+                '<p class="session-meta">' + metaHtml + '</p>' +
+                '<p class="session-class"><i class="fa-solid fa-clapperboard"></i> ' + escapeHtml(session.classTitle || session.classId) + '</p>' +
+                (pCount > 0 ? '<p class="session-participants"><i class="fa-solid fa-users"></i> ' + pCount + ' student' + (pCount === 1 ? '' : 's') + ' joined</p>' : '') +
                 '<div class="card-actions">' +
+                (isOA ? '<div class="oa-toggle-wrap">' + toggleHtml + '</div>' : '') +
                 '<button type="button" class="card-btn btn-edit"><i class="fa-solid fa-pen-to-square"></i> Edit</button>' +
                 '<button type="button" class="card-btn btn-share"><i class="fa-solid fa-share-nodes"></i> Share</button>' +
                 '<button type="button" class="card-btn btn-delete"><i class="fa-solid fa-trash-can"></i></button>' +
                 '</div>';
+
+            // Open/Closed live toggle
+            const toggleEl = card.querySelector('.oa-toggle');
+            if (toggleEl) {
+                toggleEl.addEventListener('change', async () => {
+                    const nowOpen = toggleEl.checked;
+                    const textEl = card.querySelector('.oa-toggle-text');
+                    if (textEl) textEl.textContent = nowOpen ? 'Open' : 'Closed';
+                    card.querySelector('.session-status').textContent = nowOpen ? 'Open' : 'Closed';
+                    card.querySelector('.session-status').className = 'session-status status-' + (nowOpen ? 'open' : 'closed');
+                    try {
+                        await apiFetch('/api/sessions/' + session.sessionId, { method: 'PUT', body: { isOpen: nowOpen } });
+                        session.isOpen = nowOpen;
+                        showToast(nowOpen ? '🟢 Class opened!' : '🔴 Class closed');
+                    } catch (err) {
+                        toggleEl.checked = !nowOpen; // revert
+                        showToast('⚠ Failed to update: ' + err.message, true);
+                    }
+                });
+            }
 
             card.querySelector('.btn-edit').addEventListener('click', () => {
                 fillForm(session);
@@ -554,6 +672,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (searchInput) searchInput.addEventListener('input', renderSessions);
 
+    /* ── Delete modal ───────────────────────────────────── */
     if (btnCancelDelete) {
         btnCancelDelete.addEventListener('click', () => {
             sessionToDeleteId = null;
@@ -562,19 +681,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (btnConfirmDelete) {
-        btnConfirmDelete.addEventListener('click', () => {
+        btnConfirmDelete.addEventListener('click', async () => {
             if (!sessionToDeleteId) return;
-            const store = readJsonStore(SESSION_STORE_KEY);
-            delete store[sessionToDeleteId];
-            writeJsonStore(SESSION_STORE_KEY, store);
-            if (editingSessionId === sessionToDeleteId) resetForm();
-            sessionToDeleteId = null;
-            if (deleteModal) deleteModal.classList.add('hidden');
-            loadSessions();
-            showToast('Session deleted');
+            try {
+                await apiFetch('/api/sessions/' + sessionToDeleteId, { method: 'DELETE' });
+                if (editingSessionId === sessionToDeleteId) resetForm();
+                showToast('Session deleted');
+            } catch (err) {
+                showToast('⚠ Delete failed: ' + err.message, true);
+            } finally {
+                sessionToDeleteId = null;
+                if (deleteModal) deleteModal.classList.add('hidden');
+                await loadSessions();
+            }
         });
     }
 
+    /* ── Toast ──────────────────────────────────────────── */
+    function showToast(msg, isError) {
+        const t = document.createElement('div');
+        t.className = 'studio-toast' + (isError ? ' toast-error' : '');
+        t.textContent = msg;
+        document.body.appendChild(t);
+        requestAnimationFrame(() => t.classList.add('show'));
+        setTimeout(() => {
+            t.classList.remove('show');
+            setTimeout(() => t.remove(), 300);
+        }, 2200);
+    }
+
+    /* ── Utility ────────────────────────────────────────── */
     function escapeHtml(str) {
         return String(str || '')
             .replace(/&/g, '&amp;')
@@ -583,14 +719,14 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/"/g, '&quot;');
     }
 
-    /* Boot */
+    /* ── Boot ───────────────────────────────────────────── */
     defaultDateTime();
     loadClasses();
-    loadSessions();
-
-    const editId = new URLSearchParams(window.location.search).get('sessionId');
-    if (editId) {
-        const store = readJsonStore(SESSION_STORE_KEY);
-        if (store[editId]) fillForm(store[editId]);
-    }
+    loadSessions().then(() => {
+        const editId = new URLSearchParams(window.location.search).get('sessionId');
+        if (editId) {
+            const s = sessions.find(x => x.sessionId === editId);
+            if (s) fillForm(s);
+        }
+    });
 });

@@ -57,8 +57,27 @@
     </div>
   </nav>
 
-  <!-- Class / Session code gate -->
-  <div class="class-code-gate" id="classCodeGate">
+  <!-- ── Student Name Entry Modal (shown when arriving via sessionId link) ── -->
+  <div class="name-gate hidden" id="nameGate" role="dialog" aria-modal="true" aria-labelledby="nameGateTitle">
+    <div class="name-gate-card">
+      <div class="name-gate-icon"><i class="fa-solid fa-graduation-cap"></i></div>
+      <p class="name-gate-label" id="nameGateSessionLabel">Live Class</p>
+      <h1 id="nameGateTitle">Join Class</h1>
+      <p id="nameGateDesc">Enter your name to join this session.</p>
+      <form id="nameGateForm" autocomplete="off">
+        <label for="studentNameInput">Your Name</label>
+        <input id="studentNameInput" type="text" placeholder="e.g. Ayesha Perera" required
+               autocomplete="name" spellcheck="false" maxlength="80" />
+        <p class="name-gate-error hidden" id="nameGateError" role="alert"></p>
+        <button type="submit" class="continue-button" id="btnJoinSession">
+          <i class="fa-solid fa-right-to-bracket"></i> Join Session
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Class / Session code gate (manual code entry fallback) -->
+  <div class="class-code-gate hidden" id="classCodeGate">
     <div class="class-code-card">
       <div class="class-code-icon"><i class="fa-solid fa-key"></i></div>
       <h1>Enter session or class code</h1>
@@ -67,7 +86,7 @@
         <label for="classCodeInput">Session / Class ID</label>
         <input id="classCodeInput" type="text" placeholder="e.g. ST-SESSION-1234" required spellcheck="false" />
         <p class="class-code-error hidden" id="classCodeError" role="alert"></p>
-        <button type="submit" class="continue-button class-code-submit">Join Live Class</button>
+        <button type="submit" class="continue-button class-code-submit">Continue</button>
       </form>
       <p class="class-code-hint">Teachers publish sessions from the <a href="/session_scheduler/index.html">Session Scheduler</a>.</p>
     </div>

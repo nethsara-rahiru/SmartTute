@@ -4,7 +4,7 @@
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    const SESSION_STORE_KEY = 'smarttute_sessions';
+    // Sessions are now stored in MongoDB — fetched from /api/sessions
 
     let sessions = [];
     let activeTab = 'all';
@@ -80,29 +80,45 @@ document.addEventListener('DOMContentLoaded', () => {
         menuBackdrop.addEventListener('click', () => toggleMenu(false));
     }
 
-    /* Store helpers */
-    function readJsonStore(key) {
-        try { return JSON.parse(localStorage.getItem(key) || '{}') || {}; }
-        catch (e) { return {}; }
+    /* API helpers */
+    async function apiFetch(path, options = {}) {
+        const res = await fetch(path, {
+            headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+            ...options,
+            body: options.body ? JSON.stringify(options.body) : undefined
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
+        return data;
     }
 
-    function writeJsonStore(key, store) {
-        localStorage.setItem(key, JSON.stringify(store));
-    }
-
-    function loadSessions() {
-        const store = readJsonStore(SESSION_STORE_KEY);
-        sessions = Object.values(store).filter((s) => s && s.sessionId);
+    async function loadSessions() {
+        try {
+            sessions = await apiFetch('/api/sessions');
+        } catch (e) {
+            console.error('Failed to load sessions:', e.message);
+            sessions = [];
+        }
         updateStats();
         renderView();
     }
 
     function sessionStatus(session) {
         const now = Date.now();
+
+        if (session.mode === 'open_anytime') {
+            const fromOk  = !session.openFrom  || now >= new Date(session.openFrom).getTime();
+            const untilOk = !session.openUntil || now <= new Date(session.openUntil).getTime();
+            if (session.isOpen && fromOk && untilOk) return { key: 'open',     label: 'Open' };
+            if (!session.isOpen)                     return { key: 'closed',   label: 'Closed' };
+            if (!fromOk)                              return { key: 'upcoming', label: 'Not yet open' };
+            return { key: 'closed', label: 'Period ended' };
+        }
+
         const start = new Date(session.startAt).getTime();
         const close = start + (Number(session.waitingPeriodMinutes) || 15) * 60 * 1000;
-        if (now < start) return { key: 'upcoming', label: 'Upcoming' };
-        if (now <= close) return { key: 'open', label: 'Join open' };
+        if (now < start)  return { key: 'upcoming', label: 'Upcoming' };
+        if (now <= close) return { key: 'open',     label: 'Join open' };
         return { key: 'closed', label: 'Past / Closed' };
     }
 
@@ -132,10 +148,10 @@ document.addEventListener('DOMContentLoaded', () => {
             else if (st === 'open') open++;
             else past++;
         });
-        if (statTotal) statTotal.textContent = sessions.length;
+        if (statTotal)    statTotal.textContent    = sessions.length;
         if (statUpcoming) statUpcoming.textContent = upcoming;
-        if (statOpen) statOpen.textContent = open;
-        if (statPast) statPast.textContent = past;
+        if (statOpen)     statOpen.textContent     = open;
+        if (statPast)     statPast.textContent     = past;
     }
 
     function getFilteredSessions() {
@@ -192,20 +208,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const status = sessionStatus(session);
             const card = document.createElement('article');
             card.className = 'session-card';
+            const isOA = session.mode === 'open_anytime';
+            const pCount = Array.isArray(session.participants) ? session.participants.length : 0;
+            let metaHtml = '';
+            if (isOA) {
+                metaHtml = '<span><i class="fa-solid fa-infinity"></i> Open Anytime</span>';
+                if (session.openFrom)  metaHtml += '<span><i class="fa-solid fa-calendar-check"></i> From ' + escapeHtml(formatWhen(session.openFrom)) + '</span>';
+                if (session.openUntil) metaHtml += '<span><i class="fa-solid fa-calendar-xmark"></i> Until ' + escapeHtml(formatWhen(session.openUntil)) + '</span>';
+            } else {
+                metaHtml =
+                    '<span><i class="fa-solid fa-calendar"></i> ' + escapeHtml(formatWhen(session.startAt)) + '</span>' +
+                    '<span><i class="fa-solid fa-hourglass-half"></i> ' + (session.waitingPeriodMinutes || 15) + ' min window</span>' +
+                    '<span><i class="fa-solid fa-' + (session.playbackMode === 'sync' ? 'satellite-dish' : 'backward-step') + '"></i> ' +
+                    (session.playbackMode === 'sync' ? 'Synced' : 'From start') + '</span>';
+            }
+
             card.innerHTML =
                 '<div class="session-card-top">' +
                 '<span class="session-status status-' + status.key + '">' + status.label + '</span>' +
                 '<span class="session-id">' + escapeHtml(session.sessionId) + '</span>' +
+                (isOA ? '<span class="mode-badge mode-oa"><i class="fa-solid fa-infinity"></i> Open Anytime</span>' : '<span class="mode-badge mode-sched"><i class="fa-solid fa-clock"></i> Scheduled</span>') +
                 '</div>' +
                 '<h3 class="session-title">' + escapeHtml(session.title || 'Untitled Session') + '</h3>' +
-                '<p class="session-meta">' +
-                '<span><i class="fa-solid fa-calendar"></i> ' + escapeHtml(formatWhen(session.startAt)) + '</span>' +
-                '<span><i class="fa-solid fa-hourglass-half"></i> ' + (session.waitingPeriodMinutes || 15) + ' min window</span>' +
-                '<span><i class="fa-solid fa-' + (session.playbackMode === 'sync' ? 'satellite-dish' : 'backward-step') + '"></i> ' +
-                (session.playbackMode === 'sync' ? 'Synced' : 'From start') + '</span>' +
-                '</p>' +
+                '<p class="session-meta">' + metaHtml + '</p>' +
                 '<p class="session-class"><i class="fa-solid fa-clapperboard"></i> ' +
                 escapeHtml(session.classTitle || session.classId) + '</p>' +
+                (pCount > 0 ? '<p class="session-participants"><i class="fa-solid fa-users"></i> ' + pCount + ' student' + (pCount === 1 ? '' : 's') + ' joined</p>' : '') +
                 '<div class="card-actions">' +
                 '<a href="/session_scheduler/index.html?sessionId=' + encodeURIComponent(session.sessionId) + '" class="card-btn btn-edit"><i class="fa-solid fa-pen-to-square"></i> Edit</a>' +
                 '<button type="button" class="card-btn btn-share"><i class="fa-solid fa-share-nodes"></i> Share / Join</button>' +
@@ -361,23 +389,28 @@ document.addEventListener('DOMContentLoaded', () => {
     /* Modal interactions */
     function openShareModal(session) {
         const url = studentUrl(session.sessionId);
+        const isOA = session.mode === 'open_anytime';
         if (shareModalTitle) shareModalTitle.textContent = session.title || 'Session Details';
         if (shareModalCopy) {
-            shareModalCopy.textContent =
-                'Join window: from ' + formatWhen(session.startAt) +
-                ' for ' + session.waitingPeriodMinutes + ' min. Playback: ' +
-                (session.playbackMode === 'sync' ? 'sync with main class' : 'from the beginning') + '.';
+            shareModalCopy.textContent = isOA
+                ? 'Students can join any time this session is open. Share the link below.'
+                : 'Join window: from ' + formatWhen(session.startAt) + ' for ' + session.waitingPeriodMinutes + ' min. Playback: ' + (session.playbackMode === 'sync' ? 'sync with main class' : 'from the beginning') + '.';
         }
-        if (shareSessionId) shareSessionId.value = session.sessionId;
+        if (shareSessionId)  shareSessionId.value  = session.sessionId;
         if (shareSessionUrl) shareSessionUrl.value = url;
         if (shareQrImage) {
             shareQrImage.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(url);
         }
         if (btnOpenLive) btnOpenLive.href = url;
         if (shareMeta) {
-            shareMeta.innerHTML =
-                '<p><strong>Class:</strong> ' + escapeHtml(session.classTitle || session.classId) + '</p>' +
-                '<p><strong>Starts:</strong> ' + escapeHtml(formatWhen(session.startAt)) + '</p>';
+            let metaHtml = '<p><strong>Class:</strong> ' + escapeHtml(session.classTitle || session.classId) + '</p>';
+            if (isOA) {
+                metaHtml += '<p><strong>Mode:</strong> Open Anytime</p>';
+                metaHtml += '<p><strong>Status:</strong> ' + (session.isOpen ? '🟢 Currently open' : '🔴 Currently closed') + '</p>';
+            } else {
+                metaHtml += '<p><strong>Starts:</strong> ' + escapeHtml(formatWhen(session.startAt)) + '</p>';
+            }
+            shareMeta.innerHTML = metaHtml;
         }
         if (shareModal) shareModal.classList.remove('hidden');
     }
@@ -424,15 +457,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (btnConfirmDelete) {
-        btnConfirmDelete.addEventListener('click', () => {
+        btnConfirmDelete.addEventListener('click', async () => {
             if (!sessionToDeleteId) return;
-            const store = readJsonStore(SESSION_STORE_KEY);
-            delete store[sessionToDeleteId];
-            writeJsonStore(SESSION_STORE_KEY, store);
-            sessionToDeleteId = null;
-            if (deleteModal) deleteModal.classList.add('hidden');
-            loadSessions();
-            showToast('Session deleted');
+            try {
+                await apiFetch('/api/sessions/' + sessionToDeleteId, { method: 'DELETE' });
+                showToast('Session deleted');
+            } catch (err) {
+                showToast('Delete failed: ' + err.message);
+            } finally {
+                sessionToDeleteId = null;
+                if (deleteModal) deleteModal.classList.add('hidden');
+                await loadSessions();
+            }
         });
     }
 
@@ -446,4 +482,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     /* Boot */
     loadSessions();
-});
+}); // end DOMContentLoaded

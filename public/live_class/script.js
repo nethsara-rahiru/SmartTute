@@ -2,15 +2,19 @@
  * SmartTute Live Class player
  * Runs one Class Organizer checkpoint at a time, rendering the selected
  * tuteModule question (title, latex, images, answer boxes).
+ *
+ * Session & class data is now fetched from the API (/api/sessions, /api/classes).
+ * Students must enter their name (via name-gate modal) before joining.
  */
 
 (function () {
-  const STORE_KEY = 'smarttute_published_classes';
-  const SESSION_STORE_KEY = 'smarttute_sessions';
+  const STORE_KEY = 'smarttute_published_classes'; // localStorage fallback for classes
 
-  /* ---------- Shell UI ---------- */
+  /* ──────────────────────────────────────────────────────
+   *  Shell UI (nav, theme, chat, help)
+   * ────────────────────────────────────────────────────── */
   const menuButton = document.querySelector('#menuButton');
-  const sideMenu = document.querySelector('#sideMenu');
+  const sideMenu   = document.querySelector('#sideMenu');
   const menuBackdrop = document.querySelector('#menuBackdrop');
 
   function setMenu(open) {
@@ -28,7 +32,7 @@
   if (themeToggle) {
     const savedTheme = localStorage.getItem('smarttute_theme') || localStorage.getItem('theme');
     if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-    document.body.classList.add('dark-mode');
+      document.body.classList.add('dark-mode');
       themeToggle.textContent = '☾';
       themeToggle.setAttribute('aria-label', 'Switch to light mode');
     }
@@ -56,9 +60,9 @@
   }
 
   const chatToggles = document.querySelectorAll('.chat-toggle');
-  const chatPanel = document.querySelector('#chatPanel');
-  const chatForm = document.querySelector('#chatForm');
-  const chatInput = document.querySelector('#chatInput');
+  const chatPanel   = document.querySelector('#chatPanel');
+  const chatForm    = document.querySelector('#chatForm');
+  const chatInput   = document.querySelector('#chatInput');
   const chatMessages = document.querySelector('#chatMessages');
 
   function setChat(open) {
@@ -71,9 +75,7 @@
     });
     if (open && chatInput) chatInput.focus();
   }
-  chatToggles.forEach((btn) => {
-    btn.onclick = () => setChat(!chatPanel.classList.contains('open'));
-  });
+  chatToggles.forEach((btn) => { btn.onclick = () => setChat(!chatPanel.classList.contains('open')); });
   const closeChat = document.querySelector('#closeChat');
   if (closeChat) closeChat.onclick = () => setChat(false);
   if (chatForm) {
@@ -90,36 +92,53 @@
     };
   }
 
-  /* ---------- DOM ---------- */
-  const classCodeGate = document.querySelector('#classCodeGate');
-  const classCodeForm = document.querySelector('#classCodeForm');
-  const classCodeInput = document.querySelector('#classCodeInput');
-  const classCodeError = document.querySelector('#classCodeError');
-  const liveClassPage = document.querySelector('#liveClassPage');
-  const liveClassTitle = document.querySelector('#liveClassTitle');
-  const liveClassMeta = document.querySelector('#liveClassMeta');
-  const classMissing = document.querySelector('#classMissing');
-  const classMissingCopy = document.querySelector('#classMissingCopy');
-  const btnReenterCode = document.querySelector('#btnReenterCode');
-  const videoLoader = document.querySelector('#videoLoader');
-  const videoLoaderText = document.querySelector('#videoLoaderText');
-  const questionBox = document.querySelector('#questionBox');
-  const waiting = document.querySelector('#waitingQuestion');
-  const waitingHeading = document.querySelector('#waitingHeading');
-  const waitingCopy = document.querySelector('#waitingCopy');
-  const activeBox = document.querySelector('#activeQuestion');
-  const questionTimerEl = document.querySelector('#questionTimer');
-  const questionCount = document.querySelector('#questionCount');
-  const liveQBadge = document.querySelector('#liveQBadge');
-  const questionTitle = document.querySelector('#questionTitle');
-  const questionMarks = document.querySelector('#questionMarks');
-  const questionBody = document.querySelector('#questionBody');
-  const liveTuteQuestion = document.querySelector('#liveTuteQuestion');
-  const answers = document.querySelector('#answers');
-  const feedback = document.querySelector('#feedback');
-  const continueButton = document.querySelector('#continueButton');
+  /* ──────────────────────────────────────────────────────
+   *  DOM refs
+   * ────────────────────────────────────────────────────── */
+  // Name gate (new)
+  const nameGate           = document.querySelector('#nameGate');
+  const nameGateForm       = document.querySelector('#nameGateForm');
+  const nameGateTitle      = document.querySelector('#nameGateTitle');
+  const nameGateDesc       = document.querySelector('#nameGateDesc');
+  const nameGateSessionLabel = document.querySelector('#nameGateSessionLabel');
+  const studentNameInput   = document.querySelector('#studentNameInput');
+  const nameGateError      = document.querySelector('#nameGateError');
+  const btnJoinSession     = document.querySelector('#btnJoinSession');
 
-  /* ---------- Helpers ---------- */
+  // Code gate (fallback)
+  const classCodeGate   = document.querySelector('#classCodeGate');
+  const classCodeForm   = document.querySelector('#classCodeForm');
+  const classCodeInput  = document.querySelector('#classCodeInput');
+  const classCodeError  = document.querySelector('#classCodeError');
+
+  // Main lesson
+  const liveClassPage   = document.querySelector('#liveClassPage');
+  const liveClassTitle  = document.querySelector('#liveClassTitle');
+  const liveClassMeta   = document.querySelector('#liveClassMeta');
+  const classMissing    = document.querySelector('#classMissing');
+  const classMissingCopy = document.querySelector('#classMissingCopy');
+  const btnReenterCode  = document.querySelector('#btnReenterCode');
+  const videoLoader     = document.querySelector('#videoLoader');
+  const videoLoaderText = document.querySelector('#videoLoaderText');
+  const questionBox     = document.querySelector('#questionBox');
+  const waiting         = document.querySelector('#waitingQuestion');
+  const waitingHeading  = document.querySelector('#waitingHeading');
+  const waitingCopy     = document.querySelector('#waitingCopy');
+  const activeBox       = document.querySelector('#activeQuestion');
+  const questionTimerEl = document.querySelector('#questionTimer');
+  const questionCount   = document.querySelector('#questionCount');
+  const liveQBadge      = document.querySelector('#liveQBadge');
+  const questionTitle   = document.querySelector('#questionTitle');
+  const questionMarks   = document.querySelector('#questionMarks');
+  const questionBody    = document.querySelector('#questionBody');
+  const liveTuteQuestion = document.querySelector('#liveTuteQuestion');
+  const answers         = document.querySelector('#answers');
+  const feedback        = document.querySelector('#feedback');
+  const continueButton  = document.querySelector('#continueButton');
+
+  /* ──────────────────────────────────────────────────────
+   *  Helpers
+   * ────────────────────────────────────────────────────── */
   function escapeHtml(str) {
     return String(str || '')
       .replace(/&/g, '&amp;')
@@ -139,97 +158,115 @@
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
-  function getClassIdFromUrl() {
-    return new URLSearchParams(window.location.search).get('classId') || '';
+  function getClassIdFromUrl()  { return new URLSearchParams(window.location.search).get('classId')  || ''; }
+  function getSessionIdFromUrl() { return new URLSearchParams(window.location.search).get('sessionId') || ''; }
+
+  /* ──────────────────────────────────────────────────────
+   *  API helpers
+   * ────────────────────────────────────────────────────── */
+  async function apiFetch(path, options = {}) {
+    const res = await fetch(path, {
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+      ...options,
+      body: options.body ? JSON.stringify(options.body) : undefined
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Request failed (' + res.status + ')');
+    return data;
   }
 
-  function getSessionIdFromUrl() {
-    return new URLSearchParams(window.location.search).get('sessionId') || '';
-  }
-
-  function loadPublishedClass(classId) {
+  /* ──────────────────────────────────────────────────────
+   *  Legacy localStorage helpers (fallback only)
+   * ────────────────────────────────────────────────────── */
+  function loadPublishedClassLocal(classId) {
     if (!classId) return null;
     try {
       const store = JSON.parse(localStorage.getItem(STORE_KEY) || '{}') || {};
+      // store may be object keyed by classId or array
+      if (Array.isArray(store)) return store.find(c => c.classId === classId) || null;
       return store[classId] || null;
     } catch (err) {
-      console.error('Failed to read published classes', err);
       return null;
     }
   }
 
-  function loadSession(sessionId) {
-    if (!sessionId) return null;
-    try {
-      const store = JSON.parse(localStorage.getItem(SESSION_STORE_KEY) || '{}') || {};
-      return store[sessionId] || null;
-    } catch (err) {
-      console.error('Failed to read sessions', err);
-      return null;
-    }
-  }
-
-  /** @returns {{ ok: boolean, reason?: string, phase?: string, elapsedSec?: number }} */
-  function evaluateJoinWindow(session) {
+  /* ──────────────────────────────────────────────────────
+   *  Session join window evaluation (for sync mode offset)
+   * ────────────────────────────────────────────────────── */
+  function getElapsedSec(session) {
+    if (!session || session.mode === 'open_anytime') return 0;
     const start = new Date(session.startAt).getTime();
-    const waitMs = Math.max(1, Number(session.waitingPeriodMinutes) || 15) * 60 * 1000;
-    const close = start + waitMs;
-    const now = Date.now();
-
-    if (isNaN(start)) {
-      return { ok: false, reason: 'This session has an invalid start time.', phase: 'invalid' };
-    }
-    if (now < start) {
-      const mins = Math.ceil((start - now) / 60000);
-      return {
-        ok: false,
-        reason: 'This session has not started yet. Come back in about ' + mins + ' minute(s) (starts ' + new Date(start).toLocaleString() + ').',
-        phase: 'before'
-      };
-    }
-    if (now > close) {
-      return {
-        ok: false,
-        reason: 'The join window has closed. Students cannot join more than ' +
-          (session.waitingPeriodMinutes || 15) + ' minutes after the session start.',
-        phase: 'closed'
-      };
-    }
-    return {
-      ok: true,
-      phase: 'open',
-      elapsedSec: Math.max(0, Math.floor((now - start) / 1000))
-    };
+    if (isNaN(start)) return 0;
+    return Math.max(0, Math.floor((Date.now() - start) / 1000));
   }
 
-  let activeSession = null;
-  let sessionSeekSec = 0; // for sync mode
+  /* ──────────────────────────────────────────────────────
+   *  Gate helpers
+   * ────────────────────────────────────────────────────── */
+  function hideAll() {
+    if (nameGate)       nameGate.classList.add('hidden');
+    if (classCodeGate)  classCodeGate.classList.add('hidden');
+    if (liveClassPage)  liveClassPage.classList.add('hidden');
+    if (classMissing)   classMissing.classList.add('hidden');
+  }
 
-  function showGate(errorMsg) {
+  function showNameGate(session) {
+    hideAll();
+    if (nameGateSessionLabel) nameGateSessionLabel.textContent = session.title || 'Live Class';
+    if (nameGateTitle)        nameGateTitle.textContent = 'Join Class';
+    if (nameGateDesc) {
+      if (session.mode === 'open_anytime') {
+        nameGateDesc.textContent = 'Enter your name to join this open class.';
+      } else {
+        nameGateDesc.textContent = 'Enter your name to join the live session.';
+      }
+    }
+    if (nameGateError) nameGateError.classList.add('hidden');
+    if (studentNameInput) { studentNameInput.value = ''; studentNameInput.focus(); }
+    if (nameGate) nameGate.classList.remove('hidden');
+  }
+
+  function showCodeGate(errorMsg) {
+    hideAll();
     if (classCodeGate) classCodeGate.classList.remove('hidden');
-    if (liveClassPage) liveClassPage.classList.add('hidden');
-    if (classMissing) classMissing.classList.add('hidden');
     if (classCodeError) {
       if (errorMsg) {
         classCodeError.textContent = errorMsg;
         classCodeError.classList.remove('hidden');
       } else {
-        classCodeError.textContent = '';
         classCodeError.classList.add('hidden');
       }
     }
-    if (classCodeInput) {
-      classCodeInput.focus();
-      classCodeInput.select();
+    if (classCodeInput) { classCodeInput.focus(); classCodeInput.select(); }
+  }
+
+  function showNotFound(code) {
+    hideAll();
+    if (liveClassPage)  liveClassPage.classList.remove('hidden');
+    if (questionBox)    questionBox.classList.add('hidden');
+    if (videoLoader)    videoLoader.classList.add('hidden');
+    if (classMissing)   classMissing.classList.remove('hidden');
+    if (liveClassTitle) liveClassTitle.textContent = 'Not found';
+    if (liveClassMeta)  liveClassMeta.textContent  = code || '';
+    if (classMissingCopy) {
+      classMissingCopy.textContent = 'No session found for "' + code + '". Ask your teacher for the correct Session ID.';
     }
   }
 
-  function hideGate() {
-    if (classCodeGate) classCodeGate.classList.add('hidden');
-    if (liveClassPage) liveClassPage.classList.remove('hidden');
+  function showJoinBlocked(message, session) {
+    hideAll();
+    if (liveClassPage)  liveClassPage.classList.remove('hidden');
+    if (questionBox)    questionBox.classList.add('hidden');
+    if (videoLoader)    videoLoader.classList.add('hidden');
+    if (classMissing)   classMissing.classList.remove('hidden');
+    if (liveClassTitle) liveClassTitle.textContent = 'Cannot join';
+    if (liveClassMeta)  liveClassMeta.textContent  = session ? session.sessionId : '';
+    if (classMissingCopy) classMissingCopy.textContent = message || 'Joining is not allowed right now.';
   }
 
-  /* ---------- Tute question renderer (student view of tuteModule QuestionSchema) ---------- */
+  /* ──────────────────────────────────────────────────────
+   *  Tute question renderer (unchanged from original)
+   * ────────────────────────────────────────────────────── */
   function processLatexForLive(latexStr, answersMap, imagesMap) {
     if (!latexStr) return '';
 
@@ -240,14 +277,12 @@
       return token;
     }
 
-    // Strip tikzpicture / diagram macros into a simple notice (student view)
     let processed = String(latexStr)
-      .replace(/(?:\\\[\s*)?\\begin\{tikzpicture\}([\s\S]*?)\\end\{tikzpicture\}(?:\s*\\\])?/g, () =>
+      .replace(/(?:\\\[\s*)?\\\begin\{tikzpicture\}([\s\S]*?)\\\end\{tikzpicture\}(?:\s*\\\])?/g, () =>
         createPlaceholder('<div class="live-diagram-note"><i class="fa-solid fa-draw-polygon"></i> Diagram</div>'))
       .replace(/\\diagram\{[^}]+\}/g, () =>
         createPlaceholder('<div class="live-diagram-note"><i class="fa-solid fa-draw-polygon"></i> Diagram</div>'));
 
-    // {image} / {image_1} figures with hotspot answer inputs
     processed = processed.replace(/\{image(?:_([a-zA-Z0-9_\-]+))?\}/g, (fullMatch, imgKey) => {
       const key = imgKey || 'image_1';
       const imgData = (imagesMap && (imagesMap[key] || imagesMap.image || imagesMap.image_1)) || null;
@@ -260,72 +295,46 @@
         );
       }
 
-      const alignClass = 'align-' + (imgData.align || 'center');
-      const sizeClass = 'size-' + (imgData.size || 'medium');
-      const captionHtml = imgData.caption
-        ? '<div class="tute-figure-caption">' + escapeHtml(imgData.caption) + '</div>'
-        : '';
+      const alignClass   = 'align-' + (imgData.align || 'center');
+      const sizeClass    = 'size-'  + (imgData.size  || 'medium');
+      const captionHtml  = imgData.caption ? '<div class="tute-figure-caption">' + escapeHtml(imgData.caption) + '</div>' : '';
 
       let hotspotsHtml = '';
       if (Array.isArray(imgData.hotspots)) {
         imgData.hotspots.forEach((hs, hsIdx) => {
-          const ansConfig = (answersMap && answersMap[hs.tagId]) ? answersMap[hs.tagId] : {};
+          const ansConfig    = (answersMap && answersMap[hs.tagId]) ? answersMap[hs.tagId] : {};
           const displayStyle = ansConfig.displayStyle || 'input';
-          const customText = ansConfig.labelText || hs.label || ('Label ' + (hsIdx + 1));
+          const customText   = ansConfig.labelText || hs.label || ('Label ' + (hsIdx + 1));
           const tagId = escapeHtml(hs.tagId);
-          const left = Number(hs.x) || 0;
-          const top = Number(hs.y) || 0;
+          const left  = Number(hs.x) || 0;
+          const top   = Number(hs.y) || 0;
 
           if (displayStyle === 'label') {
-            hotspotsHtml +=
-              '<div class="hotspot-badge-wrap" style="left:' + left + '%;top:' + top + '%;">' +
-              '<span class="hs-display-badge"><i class="fa-solid fa-tag"></i> ' + escapeHtml(customText) + '</span>' +
-              '<input type="text" class="tute-answer-input hs-live-input" data-ans-id="' + tagId + '" placeholder="Answer…" autocomplete="off" spellcheck="false">' +
-              '</div>';
+            hotspotsHtml += '<div class="hotspot-badge-wrap" style="left:' + left + '%;top:' + top + '%;"><span class="hs-display-badge"><i class="fa-solid fa-tag"></i> ' + escapeHtml(customText) + '</span><input type="text" class="tute-answer-input hs-live-input" data-ans-id="' + tagId + '" placeholder="Answer…" autocomplete="off" spellcheck="false"></div>';
           } else if (displayStyle === 'dot') {
-            hotspotsHtml +=
-              '<div class="hotspot-dot-wrap" style="left:' + left + '%;top:' + top + '%;">' +
-              '<span class="hs-display-dot">' + (hsIdx + 1) + '</span>' +
-              '<input type="text" class="tute-answer-input hs-live-input" data-ans-id="' + tagId + '" placeholder="Answer…" autocomplete="off" spellcheck="false">' +
-              '</div>';
+            hotspotsHtml += '<div class="hotspot-dot-wrap" style="left:' + left + '%;top:' + top + '%;"><span class="hs-display-dot">' + (hsIdx + 1) + '</span><input type="text" class="tute-answer-input hs-live-input" data-ans-id="' + tagId + '" placeholder="Answer…" autocomplete="off" spellcheck="false"></div>';
           } else if (displayStyle === 'checkbox') {
-            hotspotsHtml +=
-              '<div class="hotspot-checkbox-wrap" style="left:' + left + '%;top:' + top + '%;">' +
-              '<label class="hs-checkbox-label"><input type="checkbox" class="tute-hs-checkbox" data-ans-id="' + tagId + '"><span>' + escapeHtml(customText) + '</span></label>' +
-              '</div>';
+            hotspotsHtml += '<div class="hotspot-checkbox-wrap" style="left:' + left + '%;top:' + top + '%;"><label class="hs-checkbox-label"><input type="checkbox" class="tute-hs-checkbox" data-ans-id="' + tagId + '"><span>' + escapeHtml(customText) + '</span></label></div>';
           } else {
-            hotspotsHtml +=
-              '<div class="hotspot-input-wrap" style="left:' + left + '%;top:' + top + '%;">' +
-              '<input type="text" class="tute-answer-input" data-ans-id="' + tagId + '" placeholder="' + escapeHtml(customText) + '" autocomplete="off" spellcheck="false">' +
-              '</div>';
+            hotspotsHtml += '<div class="hotspot-input-wrap" style="left:' + left + '%;top:' + top + '%;"><input type="text" class="tute-answer-input" data-ans-id="' + tagId + '" placeholder="' + escapeHtml(customText) + '" autocomplete="off" spellcheck="false"></div>';
           }
         });
       }
 
-      const figHtml =
+      return createPlaceholder(
         '<div class="tute-figure-box ' + alignClass + ' ' + sizeClass + '" data-img-key="' + escapeHtml(key) + '">' +
         '<div style="position:relative;display:inline-block;max-width:100%;">' +
         '<img src="' + imgData.dataUrl + '" alt="' + escapeHtml(imgData.caption || 'Figure') + '" class="tute-figure-img">' +
-        hotspotsHtml +
-        '</div>' +
-        captionHtml +
-        '</div>';
-
-      return createPlaceholder(figHtml);
+        hotspotsHtml + '</div>' + captionHtml + '</div>'
+      );
     });
 
-    // {{answerX}} inline blanks
     processed = processed.replace(/\{\{([a-zA-Z0-9_\-]+)\}\}/g, (fullMatch, tagId) => {
-      return '<span class="answer-box-container">' +
-        '<input type="text" class="tute-answer-input" data-ans-id="' + escapeHtml(tagId) + '" placeholder="' + escapeHtml(tagId) + '" autocomplete="off" spellcheck="false">' +
-        '<span class="ans-tag-label">' + escapeHtml(tagId) + '</span>' +
-        '</span>';
+      return '<span class="answer-box-container"><input type="text" class="tute-answer-input" data-ans-id="' + escapeHtml(tagId) + '" placeholder="' + escapeHtml(tagId) + '" autocomplete="off" spellcheck="false"><span class="ans-tag-label">' + escapeHtml(tagId) + '</span></span>';
     });
 
-    // Protect display math
-    processed = processed.replace(/(\\\[[\s\S]*?\\\]|\$\$[\s\S]*?\$\$)/g, (mathMatch) => createPlaceholder(mathMatch));
+    processed = processed.replace(/(\\[[\\s\\S]*?\\]|\$\$[\\s\\S]*?\$\$)/g, (mathMatch) => createPlaceholder(mathMatch));
 
-    // Paragraphs
     processed = processed.split(/\n\s*\n/).map((p) => {
       const trimmed = p.trim();
       if (!trimmed) return '';
@@ -350,7 +359,7 @@
       window.renderMathInElement(container, {
         delimiters: [
           { left: '$$', right: '$$', display: true },
-          { left: '$', right: '$', display: false },
+          { left: '$',  right: '$',  display: false },
           { left: '\\(', right: '\\)', display: false },
           { left: '\\[', right: '\\]', display: true }
         ],
@@ -358,9 +367,7 @@
         ignoredClasses: ['tute-answer-input', 'answer-box-container', 'diagram-visual-box', 'tute-figure-box'],
         throwOnError: false
       });
-    } catch (err) {
-      console.error('KaTeX error:', err);
-    }
+    } catch (err) { console.error('KaTeX error:', err); }
   }
 
   function collectRenderedAnswerIds() {
@@ -374,22 +381,21 @@
     return Array.from(ids);
   }
 
-  /* ---------- Class session ---------- */
+  /* ──────────────────────────────────────────────────────
+   *  Class session state
+   * ────────────────────────────────────────────────────── */
   let player = null;
-  let ytApiLoading = false;
-  let checkpoints = [];
-  let activeIndex = -1;
-  let answered = false;
+  let ytApiLoading  = false;
+  let checkpoints   = [];
+  let activeIndex   = -1;
+  let answered      = false;
   let timerInterval = null;
-  let timeLeft = 0;
-  const completed = new Set();
-  let pollInterval = null;
+  let timeLeft      = 0;
+  const completed   = new Set();
+  let pollInterval  = null;
 
   function clearTimer() {
-    if (timerInterval) {
-      clearInterval(timerInterval);
-      timerInterval = null;
-    }
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
   }
 
   function updateTimerDisplay() {
@@ -405,16 +411,13 @@
     timerInterval = setInterval(() => {
       timeLeft -= 1;
       updateTimerDisplay();
-      if (timeLeft <= 0) {
-        clearTimer();
-        finishCheckpoint(true);
-      }
+      if (timeLeft <= 0) { clearTimer(); finishCheckpoint(true); }
     }, 1000);
   }
 
   function checkVideoTime() {
     if (!player || activeIndex > -1 || !player.getCurrentTime) return;
-    const cur = player.getCurrentTime();
+    const cur  = player.getCurrentTime();
     const next = checkpoints.findIndex((cp, i) => !completed.has(i) && cur >= (Number(cp.time) || 0));
     if (next > -1) showCheckpoint(next);
   }
@@ -423,11 +426,9 @@
     activeIndex = index;
     answered = false;
     const cp = checkpoints[index];
-    const q = cp.question || {};
+    const q  = cp.question || {};
 
-    if (cp.pauseVideo !== false && player && player.pauseVideo) {
-      player.pauseVideo();
-    }
+    if (cp.pauseVideo !== false && player && player.pauseVideo) player.pauseVideo();
 
     waiting.classList.add('hidden');
     activeBox.classList.remove('hidden');
@@ -440,33 +441,21 @@
     continueButton.disabled = false;
     continueButton.textContent = 'Submit answers';
 
-    // Only this selected question — never the full worksheet
     if (q.type === 'tute' || q.latex || q.images) {
       if (liveTuteQuestion) liveTuteQuestion.classList.remove('hidden');
-      if (answers) {
-        answers.classList.add('hidden');
-        answers.innerHTML = '';
-      }
-
-      if (liveQBadge) liveQBadge.textContent = 'Question ' + ((cp.questionIndex != null ? cp.questionIndex : index) + 1);
-      if (questionTitle) questionTitle.textContent = q.title || 'Checkpoint question';
-      if (questionMarks) questionMarks.textContent = q.marks != null ? '[' + q.marks + ' Marks]' : '';
+      if (answers) { answers.classList.add('hidden'); answers.innerHTML = ''; }
+      if (liveQBadge)    liveQBadge.textContent    = 'Question ' + ((cp.questionIndex != null ? cp.questionIndex : index) + 1);
+      if (questionTitle) questionTitle.textContent  = q.title || 'Checkpoint question';
+      if (questionMarks) questionMarks.textContent  = q.marks != null ? '[' + q.marks + ' Marks]' : '';
       if (questionBody) {
         questionBody.innerHTML = processLatexForLive(q.latex || '', q.answers || {}, q.images || {});
-        // If latex had no content but title exists, still show a short prompt
-        if (!q.latex && q.title) {
-          questionBody.innerHTML = '<p>' + escapeHtml(q.title) + '</p>' + questionBody.innerHTML;
-        }
-        // Only answer boxes that appear in the tute latex/images — never orphan answer-key leftovers
+        if (!q.latex && q.title) questionBody.innerHTML = '<p>' + escapeHtml(q.title) + '</p>' + questionBody.innerHTML;
         renderKatex(questionBody);
-        if (window.SmartTuteInkFigure) {
-          window.SmartTuteInkFigure.enhanceTuteFigures(questionBody);
-        }
+        if (window.SmartTuteInkFigure) window.SmartTuteInkFigure.enhanceTuteFigures(questionBody);
         const firstInput = questionBody.querySelector('input.tute-answer-input, input.live-text-input');
         if (firstInput) firstInput.focus();
       }
     } else {
-      // Legacy MCQ
       if (liveTuteQuestion) liveTuteQuestion.classList.add('hidden');
       if (answers) {
         answers.classList.remove('hidden');
@@ -476,10 +465,10 @@
           .map((option, i) => '<button type="button" class="answer" data-answer="' + i + '">' + escapeHtml(option) + '</button>')
           .join('');
       }
-      if (liveQBadge) liveQBadge.textContent = 'Question';
-      if (questionTitle) questionTitle.textContent = q.title || q.text || 'Quick check';
-      if (questionMarks) questionMarks.textContent = '';
-      if (questionBody) questionBody.innerHTML = q.text && q.title !== q.text ? '<p>' + escapeHtml(q.text) + '</p>' : '';
+      if (liveQBadge)    liveQBadge.textContent    = 'Question';
+      if (questionTitle) questionTitle.textContent  = q.title || q.text || 'Quick check';
+      if (questionMarks) questionMarks.textContent  = '';
+      if (questionBody)  questionBody.innerHTML     = q.text && q.title !== q.text ? '<p>' + escapeHtml(q.text) + '</p>' : '';
       continueButton.disabled = true;
       continueButton.textContent = 'Choose an answer to continue';
     }
@@ -490,7 +479,7 @@
 
   function gradeTuteQuestion() {
     const cp = checkpoints[activeIndex];
-    const q = cp.question || {};
+    const q  = cp.question || {};
     const answersMap = q.answers || {};
     const ids = collectRenderedAnswerIds();
     let allCorrect = true;
@@ -499,61 +488,42 @@
     ids.forEach((id) => {
       const expected = answersMap[id] ? String(answersMap[id].correctAnswer || '').trim() : '';
       const checkbox = (questionBody || document).querySelector('input.tute-hs-checkbox[data-ans-id="' + id + '"]');
-      const input = (questionBody || document).querySelector('input.tute-answer-input[data-ans-id="' + id + '"], input.live-text-input[data-ans-id="' + id + '"]');
+      const input    = (questionBody || document).querySelector('input.tute-answer-input[data-ans-id="' + id + '"], input.live-text-input[data-ans-id="' + id + '"]');
 
       if (checkbox && !input) {
-        // Checkbox-only: treat checked as attempt; if a correctAnswer is set, compare "true"/"yes"/etc.
         checkbox.disabled = true;
         const expectedBool = /^(true|yes|1|checked)$/i.test(expected);
         const ok = expected ? (checkbox.checked === expectedBool) : checkbox.checked;
         checkbox.parentElement && checkbox.parentElement.classList.add(ok ? 'correct' : 'wrong');
-        if (!ok) {
-          allCorrect = false;
-          if (expected) missed.push(expected);
-        }
+        if (!ok) { allCorrect = false; if (expected) missed.push(expected); }
         return;
       }
-
       if (!input) return;
       input.disabled = true;
       const ok = expected ? normalizeAnswer(input.value) === normalizeAnswer(expected) : Boolean(input.value.trim());
       input.classList.add(ok ? 'correct' : 'wrong');
-      if (!ok) {
-        allCorrect = false;
-        if (expected) missed.push(expected);
-      }
+      if (!ok) { allCorrect = false; if (expected) missed.push(expected); }
     });
 
-    if (!ids.length) {
-      feedback.textContent = 'Answer recorded.';
-      feedback.className = 'feedback ok';
-      return true;
-    }
+    if (!ids.length) { feedback.textContent = 'Answer recorded.'; feedback.className = 'feedback ok'; return true; }
 
     feedback.textContent = allCorrect
       ? 'Correct — well done!'
-      : (missed.length
-        ? 'Not quite. Expected: “' + missed.join('”, “') + '”.'
-        : 'Not quite — check your answers.');
+      : (missed.length ? 'Not quite. Expected: "' + missed.join('", "') + '".' : 'Not quite — check your answers.');
     feedback.className = 'feedback ' + (allCorrect ? 'ok' : 'bad');
     return allCorrect;
   }
 
   function gradeMcq(choice) {
     const cp = checkpoints[activeIndex];
-    const q = cp.question || {};
+    const q  = cp.question || {};
     const correct = typeof q.correct === 'number' ? q.correct : 0;
     const buttons = answers.querySelectorAll('button.answer');
-    buttons.forEach((item, i) => {
-      item.disabled = true;
-      if (i === correct) item.classList.add('correct');
-    });
+    buttons.forEach((item, i) => { item.disabled = true; if (i === correct) item.classList.add('correct'); });
     const chosenBtn = answers.querySelector('[data-answer="' + choice + '"]');
     const isCorrect = choice === correct;
     if (!isCorrect && chosenBtn) chosenBtn.classList.add('wrong');
-    feedback.textContent = isCorrect
-      ? 'Correct — well done!'
-      : 'Not quite. The correct answer is “' + ((q.options && q.options[correct]) || '') + '”.';
+    feedback.textContent = isCorrect ? 'Correct — well done!' : 'Not quite. The correct answer is "' + ((q.options && q.options[correct]) || '') + '".';
     feedback.className = 'feedback ' + (isCorrect ? 'ok' : 'bad');
     return isCorrect;
   }
@@ -564,7 +534,7 @@
     clearTimer();
 
     const cp = checkpoints[activeIndex];
-    const q = cp.question || {};
+    const q  = cp.question || {};
 
     if (q.type === 'tute' || q.latex || q.images) {
       gradeTuteQuestion();
@@ -573,10 +543,7 @@
       const buttons = answers.querySelectorAll('button.answer');
       if (buttons.length && !answers.querySelector('.answer.correct, .answer.wrong')) {
         const correct = typeof q.correct === 'number' ? q.correct : 0;
-        buttons.forEach((item, i) => {
-          item.disabled = true;
-          if (i === correct) item.classList.add('correct');
-        });
+        buttons.forEach((item, i) => { item.disabled = true; if (i === correct) item.classList.add('correct'); });
       }
       feedback.textContent = 'Time is up. Moving on when you continue.';
       feedback.className = 'feedback bad';
@@ -604,40 +571,33 @@
     continueButton.onclick = () => {
       if (activeIndex < 0) return;
       const cp = checkpoints[activeIndex];
-      const q = cp.question || {};
-
+      const q  = cp.question || {};
       if (!answered) {
         if (q.type === 'mcq' && !(q.latex || q.images)) return;
         finishCheckpoint(false);
         return;
       }
-
       activeBox.classList.add('hidden');
       waiting.classList.remove('hidden');
       const videoCard = document.querySelector('.video-card');
       if (videoCard) videoCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
       const moreLeft = completed.size < checkpoints.length;
       if (moreLeft && player && player.playVideo) player.playVideo();
       else if (!moreLeft && waitingHeading) {
         waitingHeading.textContent = 'Lesson complete';
         waitingCopy.textContent = 'You finished all checkpoints for this class.';
       }
-
       activeIndex = -1;
     };
   }
 
+  /* ──────────────────────────────────────────────────────
+   *  YouTube API
+   * ────────────────────────────────────────────────────── */
   function ensureYouTubeApi(callback) {
-    if (window.YT && window.YT.Player) {
-      callback();
-      return;
-    }
+    if (window.YT && window.YT.Player) { callback(); return; }
     const prev = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-      if (typeof prev === 'function') prev();
-      callback();
-    };
+    window.onYouTubeIframeAPIReady = () => { if (typeof prev === 'function') prev(); callback(); };
     if (!ytApiLoading) {
       ytApiLoading = true;
       const tag = document.createElement('script');
@@ -646,40 +606,34 @@
     }
   }
 
-  function startClass(classData, session) {
-    activeSession = session || null;
-    sessionSeekSec = 0;
+  /* ──────────────────────────────────────────────────────
+   *  Start class
+   * ────────────────────────────────────────────────────── */
+  function startClass(classData, session, elapsedSecOverride) {
+    hideAll();
+    if (liveClassPage) liveClassPage.classList.remove('hidden');
+    if (classMissing)  classMissing.classList.add('hidden');
+    if (questionBox)   questionBox.classList.remove('hidden');
 
+    let sessionSeekSec = 0;
     if (session && session.playbackMode === 'sync') {
-      const win = evaluateJoinWindow(session);
-      sessionSeekSec = win.elapsedSec || 0;
+      sessionSeekSec = elapsedSecOverride != null ? elapsedSecOverride : getElapsedSec(session);
     }
-
-    hideGate();
-    if (classMissing) classMissing.classList.add('hidden');
-    if (questionBox) questionBox.classList.remove('hidden');
 
     checkpoints = (classData.checkpoints || []).slice().sort((a, b) => (a.time || 0) - (b.time || 0));
     completed.clear();
     activeIndex = -1;
-    answered = false;
+    answered    = false;
     clearTimer();
-    if (pollInterval) {
-      clearInterval(pollInterval);
-      pollInterval = null;
-    }
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
 
-    if (liveClassTitle) {
-      liveClassTitle.textContent = (session && session.title) || classData.title || 'Interactive Lesson';
-    }
+    if (liveClassTitle) liveClassTitle.textContent = (session && session.title) || classData.title || 'Interactive Lesson';
     if (liveClassMeta) {
       const bits = [];
       if (session && session.sessionId) bits.push(session.sessionId);
       else if (classData.classId) bits.push(classData.classId);
       bits.push(checkpoints.length + ' checkpoint' + (checkpoints.length === 1 ? '' : 's'));
-      if (session) {
-        bits.push(session.playbackMode === 'sync' ? 'Synced playback' : 'From beginning');
-      }
+      if (session) bits.push(session.playbackMode === 'sync' ? 'Synced playback' : 'From beginning');
       if (classData.tuteTitle) bits.push(classData.tuteTitle);
       liveClassMeta.textContent = bits.join(' · ');
     }
@@ -691,19 +645,15 @@
           : 'Continue watching. Only the question selected for each checkpoint will appear — one at a time.')
         : 'This class has a video but no question checkpoints yet.';
     }
-    if (waiting) waiting.classList.remove('hidden');
-    if (activeBox) activeBox.classList.add('hidden');
-    if (videoLoader) videoLoader.classList.remove('hidden');
-    if (videoLoaderText) videoLoaderText.textContent = 'Loading “' + ((session && session.title) || classData.title || 'lesson') + '”…';
+    if (waiting)       waiting.classList.remove('hidden');
+    if (activeBox)     activeBox.classList.add('hidden');
+    if (videoLoader)   videoLoader.classList.remove('hidden');
+    if (videoLoaderText) videoLoaderText.textContent = 'Loading "' + ((session && session.title) || classData.title || 'lesson') + '"…';
 
     const videoId = classData.videoId || 'M7lc1UVf-VE';
 
     ensureYouTubeApi(() => {
-      if (player && player.destroy) {
-        try { player.destroy(); } catch (e) { /* ignore */ }
-        player = null;
-      }
-
+      if (player && player.destroy) { try { player.destroy(); } catch (e) {} player = null; }
       const mount = document.querySelector('#youtubePlayer');
       if (mount && mount.tagName !== 'DIV') {
         const fresh = document.createElement('div');
@@ -711,110 +661,122 @@
         fresh.title = 'Lesson video';
         mount.replaceWith(fresh);
       }
-
       player = new YT.Player('youtubePlayer', {
         videoId,
         playerVars: { rel: 0, modestbranding: 1, playsinline: 1, start: Math.floor(sessionSeekSec) || 0 },
         events: {
           onReady: (event) => {
             event.target.mute();
-            if (sessionSeekSec > 0) {
-              event.target.seekTo(sessionSeekSec, true);
-            }
+            if (sessionSeekSec > 0) event.target.seekTo(sessionSeekSec, true);
             event.target.playVideo();
             pollInterval = setInterval(checkVideoTime, 250);
           },
           onStateChange: (event) => {
-            if (event.data === YT.PlayerState.PLAYING && videoLoader) {
-              videoLoader.classList.add('hidden');
-            }
+            if (event.data === YT.PlayerState.PLAYING && videoLoader) videoLoader.classList.add('hidden');
           }
         }
       });
     });
   }
 
-  function showNotFound(code) {
-    hideGate();
-    if (questionBox) questionBox.classList.add('hidden');
-    if (videoLoader) videoLoader.classList.add('hidden');
-    if (classMissing) classMissing.classList.remove('hidden');
-    if (liveClassTitle) liveClassTitle.textContent = 'Not found';
-    if (liveClassMeta) liveClassMeta.textContent = code || '';
-    if (classMissingCopy) {
-      classMissingCopy.textContent =
-        'No saved session/class for “' + code + '” in this browser. Ask your teacher to publish again from Session Scheduler on this device, or enter a different code.';
-    }
-  }
+  /* ──────────────────────────────────────────────────────
+   *  Name gate form — called when sessionId is in the URL
+   * ────────────────────────────────────────────────────── */
+  let pendingSession = null; // session object shown on name gate
 
-  function showJoinBlocked(message) {
-    hideGate();
-    if (questionBox) questionBox.classList.add('hidden');
-    if (videoLoader) videoLoader.classList.add('hidden');
-    if (classMissing) classMissing.classList.remove('hidden');
-    if (liveClassTitle) liveClassTitle.textContent = 'Cannot join';
-    if (liveClassMeta) liveClassMeta.textContent = activeSession ? activeSession.sessionId : '';
-    if (classMissingCopy) classMissingCopy.textContent = message || 'Joining is not allowed right now.';
-  }
-
-  function joinWithSession(session) {
-    activeSession = session;
-    const win = evaluateJoinWindow(session);
-    if (!win.ok) {
-      showJoinBlocked(win.reason);
-      return;
-    }
-
-    const classData = loadPublishedClass(session.classId);
-    if (!classData) {
-      showNotFound(session.classId || session.sessionId);
-      return;
-    }
-
-    const url = new URL(window.location.href);
-    url.searchParams.set('sessionId', session.sessionId);
-    url.searchParams.delete('classId');
-    window.history.replaceState({}, '', url);
-    startClass(classData, session);
-  }
-
-  function tryJoin(rawCode) {
-    const code = String(rawCode || '').trim();
-    if (!code) {
-      showGate('Please enter a Session ID or Class ID.');
-      return;
-    }
-
-    // Prefer session codes
-    const session = loadSession(code);
-    if (session) {
-      joinWithSession(session);
-      return;
-    }
-
-    // Fallback: direct class access (test runs / teacher preview)
-    const classData = loadPublishedClass(code);
-    if (!classData) {
-      const url = new URL(window.location.href);
-      if (code.indexOf('ST-SESSION') === 0) url.searchParams.set('sessionId', code);
-      else url.searchParams.set('classId', code);
-      window.history.replaceState({}, '', url);
-      showNotFound(code);
-      return;
-    }
-
-    activeSession = null;
-    const url = new URL(window.location.href);
-    url.searchParams.set('classId', code);
-    url.searchParams.delete('sessionId');
-    window.history.replaceState({}, '', url);
-    startClass(classData, null);
-  }
-
-  if (classCodeForm) {
-    classCodeForm.addEventListener('submit', (e) => {
+  if (nameGateForm) {
+    nameGateForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      tryJoin(classCodeInput ? classCodeInput.value : '');
+      const name = (studentNameInput && studentNameInput.value.trim()) || '';
+      if (!name) { showNameGateError('Please enter your name.'); return; }
+      if (!pendingSession) { showNameGateError('Session data missing, please refresh.'); return; }
+
+      // Disable form while joining
+      if (btnJoinSession) { btnJoinSession.disabled = true; btnJoinSession.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Joining…'; }
+
+      try {
+        const result = await apiFetch('/api/sessions/' + pendingSession.sessionId + '/join', {
+          method: 'POST',
+          body: { name }
+        });
+
+        // Cache join data so a refresh skips the name gate
+        try {
+          sessionStorage.setItem('st_join_' + pendingSession.sessionId, JSON.stringify({ name, sessionId: pendingSession.sessionId }));
+        } catch (_) {}
+
+        const session = result.session || pendingSession;
+        const elapsedSec = result.elapsedSec || 0;
+
+        // Fetch class data
+        let classData = null;
+        try {
+          classData = await apiFetch('/api/classes/' + session.classId);
+        } catch (_) {}
+        if (!classData) classData = loadPublishedClassLocal(session.classId);
+
+        if (!classData) {
+          showNotFound(session.classId);
+          return;
+        }
+        startClass(classData, session, elapsedSec);
+
+      } catch (err) {
+        showNameGateError(err.message || 'Failed to join. Please try again.');
+      } finally {
+        if (btnJoinSession) { btnJoinSession.disabled = false; btnJoinSession.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Join Session'; }
+      }
+    });
+  }
+
+  function showNameGateError(msg) {
+    if (nameGateError) { nameGateError.textContent = msg; nameGateError.classList.remove('hidden'); }
+  }
+
+  /* ──────────────────────────────────────────────────────
+   *  Code gate (manual code entry fallback)
+   * ────────────────────────────────────────────────────── */
+  if (classCodeForm) {
+    classCodeForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = String(classCodeInput ? classCodeInput.value : '').trim();
+      if (!code) { showCodeGate('Please enter a Session ID or Class ID.'); return; }
+
+      // Try API session lookup first
+      try {
+        const session = await apiFetch('/api/sessions/' + code);
+        pendingSession = session;
+        const url = new URL(window.location.href);
+        url.searchParams.set('sessionId', code);
+        url.searchParams.delete('classId');
+        window.history.replaceState({}, '', url);
+        showNameGate(session);
+        return;
+      } catch (_) {}
+
+      // Try API class lookup (direct class access / teacher preview)
+      try {
+        const classData = await apiFetch('/api/classes/' + code);
+        const url = new URL(window.location.href);
+        url.searchParams.set('classId', code);
+        url.searchParams.delete('sessionId');
+        window.history.replaceState({}, '', url);
+        startClass(classData, null, 0);
+        return;
+      } catch (_) {}
+
+      // localStorage fallback for direct class
+      const localClass = loadPublishedClassLocal(code);
+      if (localClass) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('classId', code);
+        url.searchParams.delete('sessionId');
+        window.history.replaceState({}, '', url);
+        startClass(localClass, null, 0);
+        return;
+      }
+
+      showCodeGate('No session or class found for "' + code + '". Check the ID and try again.');
     });
   }
 
@@ -824,24 +786,60 @@
       url.searchParams.delete('classId');
       url.searchParams.delete('sessionId');
       window.history.replaceState({}, '', url);
-      activeSession = null;
-      showGate('');
+      pendingSession = null;
+      showCodeGate('');
     });
   }
 
-  /* ---------- Boot ---------- */
+  /* ──────────────────────────────────────────────────────
+   *  Boot
+   * ────────────────────────────────────────────────────── */
   const urlSessionId = getSessionIdFromUrl();
-  const urlClassId = getClassIdFromUrl();
+  const urlClassId   = getClassIdFromUrl();
 
   if (urlSessionId) {
-    const session = loadSession(urlSessionId);
-    if (session) joinWithSession(session);
-    else showNotFound(urlSessionId);
+    // Check if student already joined this session this browser session
+    let cached = null;
+    try { cached = JSON.parse(sessionStorage.getItem('st_join_' + urlSessionId)); } catch (_) {}
+
+    (async () => {
+      try {
+        const session = await apiFetch('/api/sessions/' + urlSessionId);
+        pendingSession = session;
+
+        if (cached && cached.name) {
+          // Re-join silently (page refresh), re-record attendance
+          try {
+            const result = await apiFetch('/api/sessions/' + urlSessionId + '/join', { method: 'POST', body: { name: cached.name } });
+            const s = result.session || session;
+            let classData = null;
+            try { classData = await apiFetch('/api/classes/' + s.classId); } catch (_) {}
+            if (!classData) classData = loadPublishedClassLocal(s.classId);
+            if (classData) { startClass(classData, s, result.elapsedSec || 0); return; }
+            showNotFound(s.classId);
+          } catch (err) {
+            // Session might be closed now — show gate with error
+            showNameGate(session);
+            showNameGateError(err.message);
+          }
+        } else {
+          showNameGate(session);
+        }
+      } catch (_) {
+        showNotFound(urlSessionId);
+      }
+    })();
+
   } else if (urlClassId) {
-    const classData = loadPublishedClass(urlClassId);
-    if (classData) startClass(classData, null);
-    else showNotFound(urlClassId);
+    (async () => {
+      let classData = null;
+      try { classData = await apiFetch('/api/classes/' + urlClassId); } catch (_) {}
+      if (!classData) classData = loadPublishedClassLocal(urlClassId);
+      if (classData) startClass(classData, null, 0);
+      else showNotFound(urlClassId);
+    })();
+
   } else {
-    showGate('');
+    showCodeGate('');
   }
 })();
