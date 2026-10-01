@@ -158,6 +158,37 @@
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
+  window.toggleLiveHotspotPopover = function(e, popoverId) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const targetPopover = document.getElementById(popoverId);
+    if (!targetPopover) return;
+
+    const isCurrentlyOpen = targetPopover.classList.contains('open');
+
+    document.querySelectorAll('.hs-answer-popover.open').forEach(pop => {
+      pop.classList.remove('open');
+    });
+
+    if (!isCurrentlyOpen) {
+      targetPopover.classList.add('open');
+      const inputField = targetPopover.querySelector('.hs-popover-input');
+      if (inputField) {
+        setTimeout(() => inputField.focus(), 50);
+      }
+    }
+  };
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.hs-answer-popover') && !e.target.closest('.hotspot-dot-wrap') && !e.target.closest('.hs-display-dot')) {
+      document.querySelectorAll('.hs-answer-popover.open').forEach(pop => {
+        pop.classList.remove('open');
+      });
+    }
+  });
+
   function getClassIdFromUrl()  { return new URLSearchParams(window.location.search).get('classId')  || ''; }
   function getSessionIdFromUrl() { return new URLSearchParams(window.location.search).get('sessionId') || ''; }
 
@@ -312,7 +343,15 @@
           if (displayStyle === 'label') {
             hotspotsHtml += '<div class="hotspot-badge-wrap" style="left:' + left + '%;top:' + top + '%;"><span class="hs-display-badge"><i class="fa-solid fa-tag"></i> ' + escapeHtml(customText) + '</span><input type="text" class="tute-answer-input hs-live-input" data-ans-id="' + tagId + '" placeholder="Answer…" autocomplete="off" spellcheck="false"></div>';
           } else if (displayStyle === 'dot') {
-            hotspotsHtml += '<div class="hotspot-dot-wrap" style="left:' + left + '%;top:' + top + '%;"><span class="hs-display-dot">' + (hsIdx + 1) + '</span><input type="text" class="tute-answer-input hs-live-input" data-ans-id="' + tagId + '" placeholder="Answer…" autocomplete="off" spellcheck="false"></div>';
+            const popoverId = 'popover_' + tagId + '_' + hsIdx;
+            hotspotsHtml += '<div class="hotspot-dot-wrap" style="left:' + left + '%;top:' + top + '%;">' +
+              '<span class="hs-display-dot" onclick="window.toggleLiveHotspotPopover(event, \'' + popoverId + '\')">' + (hsIdx + 1) + '</span>' +
+              '<div class="hs-answer-popover" id="' + popoverId + '">' +
+              '<div class="popover-arrow"></div>' +
+              '<div class="popover-title"><i class="fa-solid fa-bullseye"></i> ' + escapeHtml(customText) + '</div>' +
+              '<input type="text" class="tute-answer-input hs-popover-input" data-ans-id="' + tagId + '" placeholder="Answer…" autocomplete="off" spellcheck="false">' +
+              '</div>' +
+              '</div>';
           } else if (displayStyle === 'checkbox') {
             hotspotsHtml += '<div class="hotspot-checkbox-wrap" style="left:' + left + '%;top:' + top + '%;"><label class="hs-checkbox-label"><input type="checkbox" class="tute-hs-checkbox" data-ans-id="' + tagId + '"><span>' + escapeHtml(customText) + '</span></label></div>';
           } else {
