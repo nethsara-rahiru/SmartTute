@@ -7009,3 +7009,34 @@ body.dark-mode .mode-badge.mode-oa {
    ========================================================================== */
 
 /* The 'open' tab already exists; no new tabs needed */
+
+/* ==========================================================================
+   LIVE CLASS — Mobile Portrait Responsive Layout
+   ========================================================================== */
+@media (max-width: 768px) and (orientation: portrait) {
+    .video-card {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        height: auto !important;
+        aspect-ratio: 16 / 9;
+    }
+
+    .lesson-content {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .left-rail {
+        display: none !important;
+    }
+
+    .question-box {
+        padding: 16px;
+        width: 100%;
+    }
+
+    /* When a question triggers in mobile portrait, ensure question box is unhidden */
+    .question-box:not(.hidden) {
+        display: block !important;
+    }
+}

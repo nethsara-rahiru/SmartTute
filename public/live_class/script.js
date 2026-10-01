@@ -579,6 +579,7 @@
       }
       activeBox.classList.add('hidden');
       waiting.classList.remove('hidden');
+      if (questionBox) questionBox.classList.add('hidden');
       const videoCard = document.querySelector('.video-card');
       if (videoCard) videoCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
       const moreLeft = completed.size < checkpoints.length;
@@ -613,7 +614,7 @@
     hideAll();
     if (liveClassPage) liveClassPage.classList.remove('hidden');
     if (classMissing)  classMissing.classList.add('hidden');
-    if (questionBox)   questionBox.classList.remove('hidden');
+    if (questionBox)   questionBox.classList.add('hidden');
 
     let sessionSeekSec = 0;
     if (session && session.playbackMode === 'sync') {
@@ -666,7 +667,7 @@
         playerVars: { rel: 0, modestbranding: 1, playsinline: 1, start: Math.floor(sessionSeekSec) || 0 },
         events: {
           onReady: (event) => {
-            event.target.mute();
+            // Unmuted by default per request
             if (sessionSeekSec > 0) event.target.seekTo(sessionSeekSec, true);
             event.target.playVideo();
             pollInterval = setInterval(checkVideoTime, 250);
