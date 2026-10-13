@@ -104,8 +104,30 @@
           <div id="youtubePlayer" title="Lesson video"></div>
           <div class="iframe-click-blocker" aria-hidden="true"></div>
           <div class="video-loader" id="videoLoader" role="status" aria-live="polite">
-            <span class="spinner" aria-hidden="true"></span>
-            <span id="videoLoaderText">Loading lesson video…</span>
+            <!-- Subtle background animations -->
+            <div class="vl-glow" aria-hidden="true"></div>
+            <div class="vl-ripple vl-ripple-1" aria-hidden="true"></div>
+            <div class="vl-ripple vl-ripple-2" aria-hidden="true"></div>
+            <div class="vl-floats" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span>
+            </div>
+            <!-- Loader content -->
+            <div class="vl-ring-wrap" aria-hidden="true">
+              <svg class="vl-ring-svg" viewBox="0 0 56 56" fill="none">
+                <circle cx="28" cy="28" r="24" stroke="currentColor" stroke-width="2" opacity="0.12"/>
+                <circle class="vl-ring-arc" cx="28" cy="28" r="24" stroke="currentColor" stroke-width="2.5"
+                  stroke-linecap="round" stroke-dasharray="38 113"/>
+              </svg>
+              <span class="vl-monogram">S</span>
+            </div>
+            <div class="vl-text-group">
+              <p class="vl-label" id="videoLoaderText">Loading lesson…</p>
+              <p class="vl-substatus" id="videoLoaderSubstatus">Starting lesson video…</p>
+              <div class="vl-progress-track" aria-hidden="true">
+                <div class="vl-progress-bar" id="videoLoaderProgress"></div>
+              </div>
+            </div>
           </div>
           <aside class="chat-panel" id="chatPanel" aria-label="Lesson chat">
             <div class="chat-header">
@@ -154,7 +176,7 @@
           </aside>
         </div>
 
-        <section class="question-box" id="questionBox" aria-live="polite">
+        <section class="question-box hidden" id="questionBox" aria-live="polite">
           <div class="waiting-question" id="waitingQuestion">
             <div class="question-icon">?</div>
             <div>
@@ -185,8 +207,43 @@
             <!-- MCQ fallback (legacy) -->
             <div class="answers hidden" id="answers"></div>
 
-            <p class="feedback" id="feedback"></p>
-            <button class="continue-button" id="continueButton" disabled>Submit answers to continue</button>
+            <p class="feedback hidden" id="feedback"></p>
+            <button class="continue-button" id="continueButton" disabled>Submit answers</button>
+          </div>
+
+          <!-- Celebration Overlay & Confetti Canvas -->
+          <canvas class="celebration-confetti-canvas" id="celebrationConfettiCanvas" aria-hidden="true"></canvas>
+
+          <!-- Big Animated Correct Celebration -->
+          <div class="result-feedback-card correct-feedback-card hidden" id="correctResultCard" aria-live="assertive">
+            <div class="result-icon-wrapper correct-icon-circle">
+              <svg class="animated-svg-check" viewBox="0 0 52 52">
+                <circle class="svg-circle-bg" cx="26" cy="26" r="23" fill="none"/>
+                <path class="svg-check-path" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+              </svg>
+            </div>
+            <h2 class="result-feedback-title">Correct! Well Done</h2>
+            <p class="result-feedback-subtitle">Great job! Resuming the lesson…</p>
+            <div class="result-progress-track">
+              <div class="result-progress-fill correct-progress-fill" id="correctProgressBar"></div>
+            </div>
+          </div>
+
+          <!-- Wrong Answer Review Overlay -->
+          <div class="result-feedback-card wrong-feedback-card hidden" id="wrongResultCard" aria-live="assertive">
+            <div class="result-icon-wrapper wrong-icon-circle">
+              <svg class="animated-svg-cross" viewBox="0 0 52 52">
+                <circle class="svg-circle-wrong-bg" cx="26" cy="26" r="23" fill="none"/>
+                <path class="svg-cross-path1" fill="none" d="M16 16 36 36"/>
+                <path class="svg-cross-path2" fill="none" d="M36 16 16 36"/>
+              </svg>
+            </div>
+            <h2 class="result-feedback-title wrong-title">Incorrect Answer</h2>
+            <p class="result-feedback-subtitle">Here is the review of the question:</p>
+            <div class="result-review-container" id="wrongReviewContainer"></div>
+            <div class="result-progress-track">
+              <div class="result-progress-fill wrong-progress-fill" id="wrongProgressBar"></div>
+            </div>
           </div>
         </section>
 
@@ -200,7 +257,7 @@
     </section>
   </main>
   <script src="/shared/inkFigure.js"></script>
-  <script src="script.js"></script>
+  <script src="script.js?v=5"></script>
   <script src="chat.js"></script>
 </body>
 

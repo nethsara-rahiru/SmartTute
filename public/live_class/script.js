@@ -14,7 +14,7 @@
    *  Shell UI (nav, theme, chat, help)
    * ────────────────────────────────────────────────────── */
   const menuButton = document.querySelector('#menuButton');
-  const sideMenu   = document.querySelector('#sideMenu');
+  const sideMenu = document.querySelector('#sideMenu');
   const menuBackdrop = document.querySelector('#menuBackdrop');
 
   function setMenu(open) {
@@ -60,7 +60,7 @@
   }
 
   const chatToggles = document.querySelectorAll('.chat-toggle');
-  const chatPanel   = document.querySelector('#chatPanel');
+  const chatPanel = document.querySelector('#chatPanel');
 
   function setChat(open) {
     if (!chatPanel) return;
@@ -81,8 +81,8 @@
 
   /* Chat globals — set after student joins so chat.js can start */
   function initChatContext(sessionId, studentId, studentName) {
-    window._chatSessionId   = sessionId;
-    window._chatStudentId   = studentId;
+    window._chatSessionId = sessionId;
+    window._chatStudentId = studentId;
     window._chatStudentName = studentName;
   }
 
@@ -90,45 +90,233 @@
    *  DOM refs
    * ────────────────────────────────────────────────────── */
   // Name gate (new)
-  const nameGate           = document.querySelector('#nameGate');
-  const nameGateForm       = document.querySelector('#nameGateForm');
-  const nameGateTitle      = document.querySelector('#nameGateTitle');
-  const nameGateDesc       = document.querySelector('#nameGateDesc');
+  const nameGate = document.querySelector('#nameGate');
+  const nameGateForm = document.querySelector('#nameGateForm');
+  const nameGateTitle = document.querySelector('#nameGateTitle');
+  const nameGateDesc = document.querySelector('#nameGateDesc');
   const nameGateSessionLabel = document.querySelector('#nameGateSessionLabel');
-  const studentNameInput   = document.querySelector('#studentNameInput');
-  const nameGateError      = document.querySelector('#nameGateError');
-  const btnJoinSession     = document.querySelector('#btnJoinSession');
+  const studentNameInput = document.querySelector('#studentNameInput');
+  const nameGateError = document.querySelector('#nameGateError');
+  const btnJoinSession = document.querySelector('#btnJoinSession');
 
   // Code gate (fallback)
-  const classCodeGate   = document.querySelector('#classCodeGate');
-  const classCodeForm   = document.querySelector('#classCodeForm');
-  const classCodeInput  = document.querySelector('#classCodeInput');
-  const classCodeError  = document.querySelector('#classCodeError');
+  const classCodeGate = document.querySelector('#classCodeGate');
+  const classCodeForm = document.querySelector('#classCodeForm');
+  const classCodeInput = document.querySelector('#classCodeInput');
+  const classCodeError = document.querySelector('#classCodeError');
 
   // Main lesson
-  const liveClassPage   = document.querySelector('#liveClassPage');
-  const liveClassTitle  = document.querySelector('#liveClassTitle');
-  const liveClassMeta   = document.querySelector('#liveClassMeta');
-  const classMissing    = document.querySelector('#classMissing');
+  const liveClassPage = document.querySelector('#liveClassPage');
+  const liveClassTitle = document.querySelector('#liveClassTitle');
+  const liveClassMeta = document.querySelector('#liveClassMeta');
+  const classMissing = document.querySelector('#classMissing');
   const classMissingCopy = document.querySelector('#classMissingCopy');
-  const btnReenterCode  = document.querySelector('#btnReenterCode');
-  const videoLoader     = document.querySelector('#videoLoader');
+  const btnReenterCode = document.querySelector('#btnReenterCode');
+  const videoLoader = document.querySelector('#videoLoader');
   const videoLoaderText = document.querySelector('#videoLoaderText');
-  const questionBox     = document.querySelector('#questionBox');
-  const waiting         = document.querySelector('#waitingQuestion');
-  const waitingHeading  = document.querySelector('#waitingHeading');
-  const waitingCopy     = document.querySelector('#waitingCopy');
-  const activeBox       = document.querySelector('#activeQuestion');
+  const videoLoaderSubstatus = document.querySelector('#videoLoaderSubstatus');
+  const videoLoaderProgress = document.querySelector('#videoLoaderProgress');
+  const questionBox = document.querySelector('#questionBox');
+  const waiting = document.querySelector('#waitingQuestion');
+  const waitingHeading = document.querySelector('#waitingHeading');
+  const waitingCopy = document.querySelector('#waitingCopy');
+  const activeBox = document.querySelector('#activeQuestion');
   const questionTimerEl = document.querySelector('#questionTimer');
-  const questionCount   = document.querySelector('#questionCount');
-  const liveQBadge      = document.querySelector('#liveQBadge');
-  const questionTitle   = document.querySelector('#questionTitle');
-  const questionMarks   = document.querySelector('#questionMarks');
-  const questionBody    = document.querySelector('#questionBody');
+  const questionCount = document.querySelector('#questionCount');
+  const liveQBadge = document.querySelector('#liveQBadge');
+  const questionTitle = document.querySelector('#questionTitle');
+  const questionMarks = document.querySelector('#questionMarks');
+  const questionBody = document.querySelector('#questionBody');
   const liveTuteQuestion = document.querySelector('#liveTuteQuestion');
-  const answers         = document.querySelector('#answers');
-  const feedback        = document.querySelector('#feedback');
-  const continueButton  = document.querySelector('#continueButton');
+  const answers = document.querySelector('#answers');
+  const feedback = document.querySelector('#feedback');
+  const continueButton = document.querySelector('#continueButton');
+  const correctResultCard = document.querySelector('#correctResultCard');
+  const wrongResultCard = document.querySelector('#wrongResultCard');
+  const wrongReviewContainer = document.querySelector('#wrongReviewContainer');
+  const correctProgressBar = document.querySelector('#correctProgressBar');
+  const wrongProgressBar = document.querySelector('#wrongProgressBar');
+  const celebrationCanvas = document.querySelector('#celebrationConfettiCanvas');
+
+  /* ──────────────────────────────────────────────────────
+   *  Confetti & Animated Results (Correct / Wrong)
+   * ────────────────────────────────────────────────────── */
+  const CORRECT_DURATION_MS = 5000; // Duration to show big animated checkmark before resuming video
+  const WRONG_DURATION_MS = 8500; // Duration to show review of incorrect answer before resuming video
+
+  let confettiAnimId = null;
+  let progressAnimFrame = null;
+
+  function runProgressBar(barEl, durationMs) {
+    if (!barEl) return;
+    if (progressAnimFrame) cancelAnimationFrame(progressAnimFrame);
+    barEl.style.width = '0%';
+    const startTime = performance.now();
+    function tick(now) {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / durationMs, 1);
+      barEl.style.width = (progress * 100) + '%';
+      if (progress < 1) {
+        progressAnimFrame = requestAnimationFrame(tick);
+      }
+    }
+    progressAnimFrame = requestAnimationFrame(tick);
+  }
+
+  function showCorrectCelebration() {
+    // Hide active question card immediately to reveal big animated checkmark
+    if (activeBox) activeBox.classList.add('hidden');
+    if (wrongResultCard) wrongResultCard.classList.add('hidden');
+
+    if (correctResultCard) {
+      correctResultCard.classList.remove('hidden');
+      runProgressBar(correctProgressBar, CORRECT_DURATION_MS);
+    }
+
+    if (celebrationCanvas) {
+      runConfetti(celebrationCanvas, CORRECT_DURATION_MS);
+    }
+  }
+
+  function showWrongAnswerReview(details) {
+    // Hide active question card immediately to reveal wrong answer review
+    if (activeBox) activeBox.classList.add('hidden');
+    if (correctResultCard) correctResultCard.classList.add('hidden');
+
+    if (wrongReviewContainer) {
+      wrongReviewContainer.innerHTML = '';
+      const items = (details && details.items) ? details.items : [];
+
+      if (items.length > 0) {
+        items.forEach((item) => {
+          const card = document.createElement('div');
+          card.className = 'review-item-card';
+          card.innerHTML =
+            (item.questionTitle ? '<div class="review-question-label"><i class="fa-solid fa-circle-question"></i> ' + escapeHtml(item.questionTitle) + '</div>' : '') +
+            '<div class="review-answers-row">' +
+            '<div class="review-badge-box user-answer">' +
+            '<span class="review-badge-title"><i class="fa-solid fa-xmark"></i> Your Answer</span>' +
+            '<span class="review-badge-value">' + escapeHtml(item.studentAnswer || '(No answer provided)') + '</span>' +
+            '</div>' +
+            '<div class="review-badge-box correct-answer">' +
+            '<span class="review-badge-title"><i class="fa-solid fa-check"></i> Correct Answer</span>' +
+            '<span class="review-badge-value">' + escapeHtml(item.correctAnswer || '-') + '</span>' +
+            '</div>' +
+            '</div>';
+          wrongReviewContainer.appendChild(card);
+        });
+      } else {
+        const card = document.createElement('div');
+        card.className = 'review-item-card';
+        card.innerHTML =
+          '<div class="review-question-label"><i class="fa-solid fa-circle-question"></i> ' + escapeHtml(details.questionTitle || 'Checkpoint Question') + '</div>' +
+          '<div class="review-answers-row">' +
+          '<div class="review-badge-box user-answer">' +
+          '<span class="review-badge-title"><i class="fa-solid fa-xmark"></i> Your Answer</span>' +
+          '<span class="review-badge-value">' + escapeHtml(details.studentAnswer || '(Incorrect)') + '</span>' +
+          '</div>' +
+          '<div class="review-badge-box correct-answer">' +
+          '<span class="review-badge-title"><i class="fa-solid fa-check"></i> Correct Answer</span>' +
+          '<span class="review-badge-value">' + escapeHtml(details.correctAnswer || '-') + '</span>' +
+          '</div>' +
+          '</div>';
+        wrongReviewContainer.appendChild(card);
+      }
+    }
+
+    if (wrongResultCard) {
+      wrongResultCard.classList.remove('hidden');
+      runProgressBar(wrongProgressBar, WRONG_DURATION_MS);
+    }
+  }
+
+  function resetCelebrationUI() {
+    if (activeBox) activeBox.classList.remove('answered-correct-card');
+    if (correctResultCard) correctResultCard.classList.add('hidden');
+    if (wrongResultCard) wrongResultCard.classList.add('hidden');
+    if (progressAnimFrame) {
+      cancelAnimationFrame(progressAnimFrame);
+      progressAnimFrame = null;
+    }
+    if (correctProgressBar) correctProgressBar.style.width = '0%';
+    if (wrongProgressBar) wrongProgressBar.style.width = '0%';
+    if (confettiAnimId) {
+      cancelAnimationFrame(confettiAnimId);
+      confettiAnimId = null;
+    }
+    if (celebrationCanvas) {
+      const ctx = celebrationCanvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, celebrationCanvas.width, celebrationCanvas.height);
+    }
+  }
+
+  function runConfetti(canvas, durationMs) {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width || canvas.offsetWidth || 800;
+    canvas.height = rect.height || canvas.offsetHeight || 400;
+
+    const colors = ['#22c55e', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6', '#10b981'];
+    const particles = [];
+    const particleCount = 70;
+
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        x: canvas.width * (0.35 + Math.random() * 0.3),
+        y: canvas.height * 0.4 + (Math.random() * 40 - 20),
+        vx: (Math.random() - 0.5) * 14,
+        vy: (Math.random() * -12) - 3,
+        size: Math.random() * 7 + 4,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        rotation: Math.random() * 360,
+        rotSpeed: (Math.random() - 0.5) * 12,
+        alpha: 1,
+        gravity: 0.32,
+        shape: Math.random() > 0.4 ? 'rect' : 'circle'
+      });
+    }
+
+    const start = performance.now();
+    if (confettiAnimId) cancelAnimationFrame(confettiAnimId);
+
+    function frame(now) {
+      const elapsed = now - start;
+      const progress = Math.min(elapsed / durationMs, 1);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      particles.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += p.gravity;
+        p.rotation += p.rotSpeed;
+        p.alpha = Math.max(0, 1 - progress);
+
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = p.color;
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.rotation * Math.PI) / 180);
+
+        if (p.shape === 'rect') {
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.65);
+        } else {
+          ctx.beginPath();
+          ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      });
+
+      if (progress < 1) {
+        confettiAnimId = requestAnimationFrame(frame);
+      } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        confettiAnimId = null;
+      }
+    }
+    confettiAnimId = requestAnimationFrame(frame);
+  }
 
   /* ──────────────────────────────────────────────────────
    *  Helpers
@@ -161,7 +349,7 @@
     return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
   }
 
-  window.toggleLiveHotspotPopover = function(e, popoverId) {
+  window.toggleLiveHotspotPopover = function (e, popoverId) {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -192,7 +380,7 @@
     }
   });
 
-  function getClassIdFromUrl()  { return new URLSearchParams(window.location.search).get('classId')  || ''; }
+  function getClassIdFromUrl() { return new URLSearchParams(window.location.search).get('classId') || ''; }
   function getSessionIdFromUrl() { return new URLSearchParams(window.location.search).get('sessionId') || ''; }
 
   /* ──────────────────────────────────────────────────────
@@ -238,16 +426,16 @@
    *  Gate helpers
    * ────────────────────────────────────────────────────── */
   function hideAll() {
-    if (nameGate)       nameGate.classList.add('hidden');
-    if (classCodeGate)  classCodeGate.classList.add('hidden');
-    if (liveClassPage)  liveClassPage.classList.add('hidden');
-    if (classMissing)   classMissing.classList.add('hidden');
+    if (nameGate) nameGate.classList.add('hidden');
+    if (classCodeGate) classCodeGate.classList.add('hidden');
+    if (liveClassPage) liveClassPage.classList.add('hidden');
+    if (classMissing) classMissing.classList.add('hidden');
   }
 
   function showNameGate(session) {
     hideAll();
     if (nameGateSessionLabel) nameGateSessionLabel.textContent = session.title || 'Live Class';
-    if (nameGateTitle)        nameGateTitle.textContent = 'Join Class';
+    if (nameGateTitle) nameGateTitle.textContent = 'Join Class';
     if (nameGateDesc) {
       if (session.mode === 'open_anytime') {
         nameGateDesc.textContent = 'Enter your name to join this open class.';
@@ -276,12 +464,12 @@
 
   function showNotFound(code) {
     hideAll();
-    if (liveClassPage)  liveClassPage.classList.remove('hidden');
-    if (questionBox)    questionBox.classList.add('hidden');
-    if (videoLoader)    videoLoader.classList.add('hidden');
-    if (classMissing)   classMissing.classList.remove('hidden');
+    if (liveClassPage) liveClassPage.classList.remove('hidden');
+    if (questionBox) questionBox.classList.add('hidden');
+    if (videoLoader) videoLoader.classList.add('hidden');
+    if (classMissing) classMissing.classList.remove('hidden');
     if (liveClassTitle) liveClassTitle.textContent = 'Not found';
-    if (liveClassMeta)  liveClassMeta.textContent  = code || '';
+    if (liveClassMeta) liveClassMeta.textContent = code || '';
     if (classMissingCopy) {
       classMissingCopy.textContent = 'No session found for "' + code + '". Ask your teacher for the correct Session ID.';
     }
@@ -289,12 +477,12 @@
 
   function showJoinBlocked(message, session) {
     hideAll();
-    if (liveClassPage)  liveClassPage.classList.remove('hidden');
-    if (questionBox)    questionBox.classList.add('hidden');
-    if (videoLoader)    videoLoader.classList.add('hidden');
-    if (classMissing)   classMissing.classList.remove('hidden');
+    if (liveClassPage) liveClassPage.classList.remove('hidden');
+    if (questionBox) questionBox.classList.add('hidden');
+    if (videoLoader) videoLoader.classList.add('hidden');
+    if (classMissing) classMissing.classList.remove('hidden');
     if (liveClassTitle) liveClassTitle.textContent = 'Cannot join';
-    if (liveClassMeta)  liveClassMeta.textContent  = session ? session.sessionId : '';
+    if (liveClassMeta) liveClassMeta.textContent = session ? session.sessionId : '';
     if (classMissingCopy) classMissingCopy.textContent = message || 'Joining is not allowed right now.';
   }
 
@@ -329,19 +517,19 @@
         );
       }
 
-      const alignClass   = 'align-' + (imgData.align || 'center');
-      const sizeClass    = 'size-'  + (imgData.size  || 'medium');
-      const captionHtml  = imgData.caption ? '<div class="tute-figure-caption">' + escapeHtml(imgData.caption) + '</div>' : '';
+      const alignClass = 'align-' + (imgData.align || 'center');
+      const sizeClass = 'size-' + (imgData.size || 'medium');
+      const captionHtml = imgData.caption ? '<div class="tute-figure-caption">' + escapeHtml(imgData.caption) + '</div>' : '';
 
       let hotspotsHtml = '';
       if (Array.isArray(imgData.hotspots)) {
         imgData.hotspots.forEach((hs, hsIdx) => {
-          const ansConfig    = (answersMap && answersMap[hs.tagId]) ? answersMap[hs.tagId] : {};
+          const ansConfig = (answersMap && answersMap[hs.tagId]) ? answersMap[hs.tagId] : {};
           const displayStyle = ansConfig.displayStyle || 'input';
-          const customText   = ansConfig.labelText || hs.label || ('Label ' + (hsIdx + 1));
+          const customText = ansConfig.labelText || hs.label || ('Label ' + (hsIdx + 1));
           const tagId = escapeHtml(hs.tagId);
-          const left  = Number(hs.x) || 0;
-          const top   = Number(hs.y) || 0;
+          const left = Number(hs.x) || 0;
+          const top = Number(hs.y) || 0;
 
           if (displayStyle === 'label') {
             const ansCfg = (answersMap && answersMap[hs.tagId]) || {};
@@ -436,7 +624,7 @@
       window.renderMathInElement(container, {
         delimiters: [
           { left: '$$', right: '$$', display: true },
-          { left: '$',  right: '$',  display: false },
+          { left: '$', right: '$', display: false },
           { left: '\\(', right: '\\)', display: false },
           { left: '\\[', right: '\\]', display: true }
         ],
@@ -462,14 +650,15 @@
    *  Class session state
    * ────────────────────────────────────────────────────── */
   let player = null;
-  let ytApiLoading  = false;
-  let checkpoints   = [];
-  let activeIndex   = -1;
-  let answered      = false;
+  let ytApiLoading = false;
+  let checkpoints = [];
+  let activeIndex = -1;
+  let answered = false;
+  let lastGradeResult = null;
   let timerInterval = null;
-  let timeLeft      = 0;
-  const completed   = new Set();
-  let pollInterval  = null;
+  let timeLeft = 0;
+  const completed = new Set();
+  let pollInterval = null;
 
   function clearTimer() {
     if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
@@ -494,23 +683,32 @@
 
   function checkVideoTime() {
     if (!player || activeIndex > -1 || !player.getCurrentTime) return;
-    const cur  = player.getCurrentTime();
+    const cur = player.getCurrentTime();
     const next = checkpoints.findIndex((cp, i) => !completed.has(i) && cur >= (Number(cp.time) || 0));
     if (next > -1) showCheckpoint(next);
   }
 
+  // Developer helper to test question box presentation
+  window.__showCheckpointTest = function (idx) {
+    showCheckpoint(idx != null ? idx : (checkpoints.length ? 0 : -1));
+  };
+
   function showCheckpoint(index) {
     activeIndex = index;
     answered = false;
+    lastGradeResult = null;
+    resetCelebrationUI();
     cpStartTime = Date.now();
     const cp = checkpoints[index];
-    const q  = cp.question || {};
+    const q = cp.question || {};
 
     if (cp.pauseVideo !== false && player && player.pauseVideo) player.pauseVideo();
 
-    waiting.classList.add('hidden');
-    activeBox.classList.remove('hidden');
-    questionBox.classList.remove('hidden');
+    if (questionBox) {
+      questionBox.classList.remove('hidden', 'question-box-collapsing');
+    }
+    if (waiting) waiting.classList.add('hidden');
+    if (activeBox) activeBox.classList.remove('hidden');
     if (classMissing) classMissing.classList.add('hidden');
 
     questionCount.textContent = 'CHECKPOINT ' + (index + 1) + ' OF ' + checkpoints.length;
@@ -522,9 +720,9 @@
     if (q.type === 'tute' || q.latex || q.images) {
       if (liveTuteQuestion) liveTuteQuestion.classList.remove('hidden');
       if (answers) { answers.classList.add('hidden'); answers.innerHTML = ''; }
-      if (liveQBadge)    liveQBadge.textContent    = 'Question ' + ((cp.questionIndex != null ? cp.questionIndex : index) + 1);
-      if (questionTitle) questionTitle.textContent  = q.title || 'Checkpoint question';
-      if (questionMarks) questionMarks.textContent  = q.marks != null ? '[' + q.marks + ' Marks]' : '';
+      if (liveQBadge) liveQBadge.textContent = 'Question ' + ((cp.questionIndex != null ? cp.questionIndex : index) + 1);
+      if (questionTitle) questionTitle.textContent = q.title || 'Checkpoint question';
+      if (questionMarks) questionMarks.textContent = q.marks != null ? '[' + q.marks + ' Marks]' : '';
       if (questionBody) {
         questionBody.innerHTML = processLatexForLive(q.latex || '', q.answers || {}, q.images || {});
         if (!q.latex && q.title) questionBody.innerHTML = '<p>' + escapeHtml(q.title) + '</p>' + questionBody.innerHTML;
@@ -532,6 +730,11 @@
         if (window.SmartTuteInkFigure) window.SmartTuteInkFigure.enhanceTuteFigures(questionBody);
         const firstInput = questionBody.querySelector('input.tute-answer-input, input.live-text-input');
         if (firstInput) firstInput.focus();
+      }
+      if (continueButton) {
+        continueButton.classList.remove('hidden');
+        continueButton.disabled = false;
+        continueButton.textContent = 'Submit Answer';
       }
     } else {
       if (liveTuteQuestion) liveTuteQuestion.classList.add('hidden');
@@ -543,32 +746,36 @@
           .map((option, i) => '<button type="button" class="answer" data-answer="' + i + '">' + escapeHtml(option) + '</button>')
           .join('');
       }
-      if (liveQBadge)    liveQBadge.textContent    = 'Question';
-      if (questionTitle) questionTitle.textContent  = q.title || q.text || 'Quick check';
-      if (questionMarks) questionMarks.textContent  = '';
-      if (questionBody)  questionBody.innerHTML     = q.text && q.title !== q.text ? '<p>' + escapeHtml(q.text) + '</p>' : '';
-      continueButton.disabled = true;
-      continueButton.textContent = 'Choose an answer to continue';
+      if (liveQBadge) liveQBadge.textContent = 'Question';
+      if (questionTitle) questionTitle.textContent = q.title || q.text || 'Quick check';
+      if (questionMarks) questionMarks.textContent = '';
+      if (questionBody) questionBody.innerHTML = q.text && q.title !== q.text ? '<p>' + escapeHtml(q.text) + '</p>' : '';
+      if (continueButton) {
+        continueButton.classList.add('hidden');
+      }
     }
 
     startTimer(cp.duration || 60);
     questionBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  let lastGradeDetails = null;
+
   function gradeTuteQuestion() {
     const cp = checkpoints[activeIndex];
-    const q  = cp.question || {};
+    const q = cp.question || {};
     const answersMap = q.answers || {};
     const ids = collectRenderedAnswerIds();
     let allCorrect = true;
     const missed = [];
+    const reviewItems = [];
 
     ids.forEach((id) => {
       const expected = answersMap[id] ? String(answersMap[id].correctAnswer || '').trim() : '';
       const checkbox = (questionBody || document).querySelector('input.tute-hs-checkbox[data-ans-id="' + id + '"]');
       const checkedRadio = (questionBody || document).querySelector('input.tute-answer-radio[data-ans-id="' + id + '"]:checked');
       const allRadios = (questionBody || document).querySelectorAll('input.tute-answer-radio[data-ans-id="' + id + '"]');
-      const input    = (questionBody || document).querySelector('.tute-answer-input[data-ans-id="' + id + '"], .tute-answer-select[data-ans-id="' + id + '"], input.live-text-input[data-ans-id="' + id + '"]');
+      const input = (questionBody || document).querySelector('.tute-answer-input[data-ans-id="' + id + '"], .tute-answer-select[data-ans-id="' + id + '"], input.live-text-input[data-ans-id="' + id + '"]');
 
       if (allRadios && allRadios.length > 0) {
         allRadios.forEach(r => r.disabled = true);
@@ -581,6 +788,11 @@
             if (r.checked) pill.classList.add(ok ? 'status-correct' : 'status-incorrect');
           }
         });
+        reviewItems.push({
+          questionTitle: q.title || 'Question item',
+          studentAnswer: val || '(None selected)',
+          correctAnswer: expected || '-'
+        });
         if (!ok) { allCorrect = false; if (expected) missed.push(expected); }
         return;
       }
@@ -590,17 +802,34 @@
         const expectedBool = /^(true|yes|1|checked)$/i.test(expected);
         const ok = expected ? (checkbox.checked === expectedBool) : checkbox.checked;
         checkbox.parentElement && checkbox.parentElement.classList.add(ok ? 'correct' : 'wrong');
+        reviewItems.push({
+          questionTitle: q.title || 'Checkbox item',
+          studentAnswer: checkbox.checked ? 'Checked' : 'Unchecked',
+          correctAnswer: expectedBool ? 'Checked' : 'Unchecked'
+        });
         if (!ok) { allCorrect = false; if (expected) missed.push(expected); }
         return;
       }
       if (!input) return;
       input.disabled = true;
-      const ok = expected ? checkAnswerMatchMulti(input.value, expected) : Boolean(input.value.trim());
+      const userVal = input.value || '';
+      const ok = expected ? checkAnswerMatchMulti(userVal, expected) : Boolean(userVal.trim());
       input.classList.add(ok ? 'correct' : 'wrong');
+      reviewItems.push({
+        questionTitle: q.title || 'Question answer',
+        studentAnswer: userVal || '(Blank)',
+        correctAnswer: expected || '-'
+      });
       if (!ok) { allCorrect = false; if (expected) missed.push(expected); }
     });
 
     const isOk = (!ids.length || allCorrect);
+    lastGradeResult = isOk;
+    lastGradeDetails = {
+      questionTitle: q.title || 'Question',
+      items: reviewItems
+    };
+
     if (!ids.length) { feedback.textContent = 'Answer recorded.'; feedback.className = 'feedback ok'; }
     else {
       feedback.textContent = allCorrect
@@ -616,15 +845,23 @@
 
   function gradeMcq(choice) {
     const cp = checkpoints[activeIndex];
-    const q  = cp.question || {};
+    const q = cp.question || {};
     const correct = typeof q.correct === 'number' ? q.correct : 0;
     const buttons = answers.querySelectorAll('button.answer');
     buttons.forEach((item, i) => { item.disabled = true; if (i === correct) item.classList.add('correct'); });
     const chosenBtn = answers.querySelector('[data-answer="' + choice + '"]');
     const isCorrect = choice === correct;
+    lastGradeResult = isCorrect;
     if (!isCorrect && chosenBtn) chosenBtn.classList.add('wrong');
     feedback.textContent = isCorrect ? 'Correct — well done!' : 'Not quite. The correct answer is "' + ((q.options && q.options[correct]) || '') + '".';
     feedback.className = 'feedback ' + (isCorrect ? 'ok' : 'bad');
+
+    const options = Array.isArray(q.options) ? q.options : [];
+    lastGradeDetails = {
+      questionTitle: q.title || q.text || 'Multiple Choice Question',
+      studentAnswer: options[choice] != null ? options[choice] : '(No selection)',
+      correctAnswer: options[correct] != null ? options[correct] : '-'
+    };
 
     const timeTaken = (Date.now() - (cpStartTime || Date.now())) / 1000;
     reportResponse(cp.id || ('cp_' + activeIndex), 'answered', isCorrect, timeTaken);
@@ -637,12 +874,13 @@
     clearTimer();
 
     const cp = checkpoints[activeIndex];
-    const q  = cp.question || {};
+    const q = cp.question || {};
 
     if (q.type === 'tute' || q.latex || q.images) {
-      gradeTuteQuestion();
+      lastGradeResult = gradeTuteQuestion();
       if (timedOut) feedback.textContent = 'Time is up. ' + feedback.textContent;
     } else if (timedOut) {
+      lastGradeResult = false;
       const buttons = answers.querySelectorAll('button.answer');
       if (buttons.length && !answers.querySelector('.answer.correct, .answer.wrong')) {
         const correct = typeof q.correct === 'number' ? q.correct : 0;
@@ -656,12 +894,71 @@
     }
 
     completed.add(activeIndex);
-    continueButton.disabled = false;
-    continueButton.textContent = completed.size === checkpoints.length ? 'Finish lesson' : 'Continue video';
+
+    // Hide the continue button during results/auto-continue flow
+    if (continueButton) {
+      if (!answered || (q.type === 'tute' || q.latex || q.images)) {
+        continueButton.classList.add('hidden');
+      }
+    }
+
     if (questionTimerEl) {
       questionTimerEl.textContent = timedOut ? 'Time up' : 'Done';
       questionTimerEl.classList.remove('urgent');
     }
+
+    // Auto-continue animations
+    if (lastGradeResult === true) {
+      // Big animated checkmark
+      showCorrectCelebration();
+      scheduleAutoHideQuestionBox(CORRECT_DURATION_MS);
+    } else {
+      // Wrong answer review showing question, student answer, correct answer
+      showWrongAnswerReview(lastGradeDetails || {
+        questionTitle: q.title || 'Checkpoint question',
+        studentAnswer: timedOut ? '(Timed out - no answer)' : '(Incorrect answer)',
+        correctAnswer: (typeof q.correct === 'number' && q.options) ? q.options[q.correct] : 'See solution'
+      });
+      scheduleAutoHideQuestionBox(WRONG_DURATION_MS);
+    }
+  }
+
+  let hideQuestionBoxTimeout = null;
+
+  function dismissQuestionBoxAnimated() {
+    if (hideQuestionBoxTimeout) {
+      clearTimeout(hideQuestionBoxTimeout);
+      hideQuestionBoxTimeout = null;
+    }
+    if (!questionBox) return;
+
+    questionBox.classList.add('question-box-collapsing');
+    setTimeout(() => {
+      activeBox.classList.add('hidden');
+      waiting.classList.remove('hidden');
+      questionBox.classList.add('hidden');
+      questionBox.classList.remove('question-box-collapsing');
+      resetCelebrationUI();
+
+      const videoCard = document.querySelector('.video-card');
+      if (videoCard) videoCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      const moreLeft = completed.size < checkpoints.length;
+      if (moreLeft && player && player.playVideo) {
+        player.playVideo();
+      } else if (!moreLeft && waitingHeading) {
+        waitingHeading.textContent = 'Lesson complete';
+        waitingCopy.textContent = 'You finished all checkpoints for this class.';
+      }
+      activeIndex = -1;
+    }, 450);
+  }
+
+  function scheduleAutoHideQuestionBox(delayMs) {
+    if (hideQuestionBoxTimeout) clearTimeout(hideQuestionBoxTimeout);
+    hideQuestionBoxTimeout = setTimeout(() => {
+      dismissQuestionBoxAnimated();
+    }, delayMs || CORRECT_DURATION_MS);
   }
 
   if (answers) {
@@ -677,24 +974,13 @@
     continueButton.onclick = () => {
       if (activeIndex < 0) return;
       const cp = checkpoints[activeIndex];
-      const q  = cp.question || {};
+      const q = cp.question || {};
       if (!answered) {
         if (q.type === 'mcq' && !(q.latex || q.images)) return;
         finishCheckpoint(false);
         return;
       }
-      activeBox.classList.add('hidden');
-      waiting.classList.remove('hidden');
-      if (questionBox) questionBox.classList.add('hidden');
-      const videoCard = document.querySelector('.video-card');
-      if (videoCard) videoCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      const moreLeft = completed.size < checkpoints.length;
-      if (moreLeft && player && player.playVideo) player.playVideo();
-      else if (!moreLeft && waitingHeading) {
-        waitingHeading.textContent = 'Lesson complete';
-        waitingCopy.textContent = 'You finished all checkpoints for this class.';
-      }
-      activeIndex = -1;
+      dismissQuestionBoxAnimated();
     };
   }
 
@@ -719,8 +1005,11 @@
   function startClass(classData, session, elapsedSecOverride) {
     hideAll();
     if (liveClassPage) liveClassPage.classList.remove('hidden');
-    if (classMissing)  classMissing.classList.add('hidden');
-    if (questionBox)   questionBox.classList.add('hidden');
+    if (classMissing) classMissing.classList.add('hidden');
+    if (questionBox) {
+      questionBox.classList.add('hidden');
+      questionBox.classList.remove('question-box-collapsing');
+    }
 
     let sessionSeekSec = 0;
     if (session && session.playbackMode === 'sync') {
@@ -730,8 +1019,9 @@
     checkpoints = (classData.checkpoints || []).slice().sort((a, b) => (a.time || 0) - (b.time || 0));
     completed.clear();
     activeIndex = -1;
-    answered    = false;
+    answered = false;
     clearTimer();
+    resetCelebrationUI();
     if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
 
     if (liveClassTitle) liveClassTitle.textContent = (session && session.title) || classData.title || 'Interactive Lesson';
@@ -752,15 +1042,45 @@
           : 'Continue watching. Only the question selected for each checkpoint will appear — one at a time.')
         : 'This class has a video but no question checkpoints yet.';
     }
-    if (waiting)       waiting.classList.remove('hidden');
-    if (activeBox)     activeBox.classList.add('hidden');
-    if (videoLoader)   videoLoader.classList.remove('hidden');
-    if (videoLoaderText) videoLoaderText.textContent = 'Loading "' + ((session && session.title) || classData.title || 'lesson') + '"…';
+    if (questionBox) questionBox.classList.add('hidden');
+    if (waiting) waiting.classList.add('hidden');
+    if (activeBox) activeBox.classList.add('hidden');
+    if (videoLoader) {
+      videoLoader.classList.remove('hidden');
+      videoLoader.classList.remove('fading');
+    }
+    const lessonTitle = ((session && session.title) || classData.title || 'lesson');
+    if (videoLoaderText) videoLoaderText.textContent = 'Loading "' + lessonTitle + '"…';
+    if (videoLoaderSubstatus) videoLoaderSubstatus.textContent = 'Connecting to video stream…';
+    if (videoLoaderProgress) videoLoaderProgress.style.width = '0%';
+
+    // Hold loading screen until video playback timer reaches 0.05 minutes (= 3.00 seconds)
+    const TARGET_VIDEO_TIME_SEC = 5.0;
+    let loaderDismissed = false;
+    let loaderPollInterval = null;
+
+    function dismissLoaderWithFade() {
+      if (loaderDismissed) return;
+      loaderDismissed = true;
+      if (loaderPollInterval) {
+        clearInterval(loaderPollInterval);
+        loaderPollInterval = null;
+      }
+      if (videoLoaderProgress) videoLoaderProgress.style.width = '100%';
+      if (videoLoaderSubstatus) videoLoaderSubstatus.textContent = 'Ready! Starting lesson…';
+      if (videoLoader) {
+        videoLoader.classList.add('fading');
+        setTimeout(() => {
+          videoLoader.classList.add('hidden');
+          videoLoader.classList.remove('fading');
+        }, 600);
+      }
+    }
 
     const videoId = classData.videoId || 'M7lc1UVf-VE';
 
     ensureYouTubeApi(() => {
-      if (player && player.destroy) { try { player.destroy(); } catch (e) {} player = null; }
+      if (player && player.destroy) { try { player.destroy(); } catch (e) { } player = null; }
       const mount = document.querySelector('#youtubePlayer');
       if (mount && mount.tagName !== 'DIV') {
         const fresh = document.createElement('div');
@@ -770,16 +1090,57 @@
       }
       player = new YT.Player('youtubePlayer', {
         videoId,
-        playerVars: { rel: 0, modestbranding: 1, playsinline: 1, start: Math.floor(sessionSeekSec) || 0 },
+        playerVars: {
+          autoplay: 1,
+          controls: 0,
+          disablekb: 1,
+          fs: 0,
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+          start: Math.floor(sessionSeekSec) || 0
+        },
         events: {
           onReady: (event) => {
             // Unmuted by default per request
             if (sessionSeekSec > 0) event.target.seekTo(sessionSeekSec, true);
             event.target.playVideo();
             pollInterval = setInterval(checkVideoTime, 250);
+
+            // Poll video playback time and status until it reaches 0.04 minutes (2.4s)
+            loaderPollInterval = setInterval(() => {
+              if (loaderDismissed) return;
+              let curTime = 0;
+              if (player && player.getCurrentTime) {
+                try { curTime = player.getCurrentTime(); } catch (e) { }
+              }
+              const baselineSec = Math.floor(sessionSeekSec) || 0;
+              const elapsedPlayTime = Math.max(0, curTime - baselineSec);
+              const progressPct = Math.min(100, Math.round((elapsedPlayTime / TARGET_VIDEO_TIME_SEC) * 100));
+
+              if (videoLoaderProgress) {
+                videoLoaderProgress.style.width = progressPct + '%';
+              }
+
+              if (videoLoaderSubstatus) {
+                if (elapsedPlayTime < 0.8) {
+                  videoLoaderSubstatus.textContent = 'Buffering video stream…';
+                } else if (elapsedPlayTime < 1.8) {
+                  videoLoaderSubstatus.textContent = 'Synchronizing checkpoints…';
+                } else if (elapsedPlayTime < TARGET_VIDEO_TIME_SEC) {
+                  videoLoaderSubstatus.textContent = 'Preparing lesson playback…';
+                } else {
+                  videoLoaderSubstatus.textContent = 'Ready! Starting lesson…';
+                }
+              }
+
+              if (elapsedPlayTime >= TARGET_VIDEO_TIME_SEC) {
+                dismissLoaderWithFade();
+              }
+            }, 50);
           },
           onStateChange: (event) => {
-            if (event.data === YT.PlayerState.PLAYING && videoLoader) videoLoader.classList.add('hidden');
+            // Keep loader active while playing until timer hits 0.05 min
           }
         }
       });
@@ -801,7 +1162,7 @@
       apiFetch('/api/sessions/' + sessionId + '/ping', {
         method: 'POST',
         body: { studentId }
-      }).catch(() => {});
+      }).catch(() => { });
     }, 10000);
   }
 
@@ -816,7 +1177,7 @@
         isCorrect: Boolean(isCorrect),
         timeTaken: Math.round(timeTaken || 0)
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }
 
   if (nameGateForm) {
@@ -831,10 +1192,10 @@
 
       try {
         let storedStudentId = null;
-        try { storedStudentId = sessionStorage.getItem('st_student_id_' + pendingSession.sessionId); } catch (_) {}
+        try { storedStudentId = sessionStorage.getItem('st_student_id_' + pendingSession.sessionId); } catch (_) { }
         if (!storedStudentId) {
           storedStudentId = 'stu_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-          try { sessionStorage.setItem('st_student_id_' + pendingSession.sessionId, storedStudentId); } catch (_) {}
+          try { sessionStorage.setItem('st_student_id_' + pendingSession.sessionId, storedStudentId); } catch (_) { }
         }
 
         const result = await apiFetch('/api/sessions/' + pendingSession.sessionId + '/join', {
@@ -846,7 +1207,7 @@
         // Cache join data so a refresh skips the name gate
         try {
           sessionStorage.setItem('st_join_' + pendingSession.sessionId, JSON.stringify({ name, studentId: currentStudentId, sessionId: pendingSession.sessionId }));
-        } catch (_) {}
+        } catch (_) { }
 
         // Expose chat context for chat.js
         initChatContext(pendingSession.sessionId, currentStudentId, name);
@@ -861,7 +1222,7 @@
         let classData = null;
         try {
           classData = await apiFetch('/api/classes/' + session.classId);
-        } catch (_) {}
+        } catch (_) { }
         if (!classData) classData = loadPublishedClassLocal(session.classId);
 
         if (!classData) {
@@ -901,7 +1262,7 @@
         window.history.replaceState({}, '', url);
         showNameGate(session);
         return;
-      } catch (_) {}
+      } catch (_) { }
 
       // Try API class lookup (direct class access / teacher preview)
       try {
@@ -912,7 +1273,7 @@
         window.history.replaceState({}, '', url);
         startClass(classData, null, 0);
         return;
-      } catch (_) {}
+      } catch (_) { }
 
       // localStorage fallback for direct class
       const localClass = loadPublishedClassLocal(code);
@@ -944,12 +1305,12 @@
    *  Boot
    * ────────────────────────────────────────────────────── */
   const urlSessionId = getSessionIdFromUrl();
-  const urlClassId   = getClassIdFromUrl();
+  const urlClassId = getClassIdFromUrl();
 
   if (urlSessionId) {
     // Check if student already joined this session this browser session
     let cached = null;
-    try { cached = JSON.parse(sessionStorage.getItem('st_join_' + urlSessionId)); } catch (_) {}
+    try { cached = JSON.parse(sessionStorage.getItem('st_join_' + urlSessionId)); } catch (_) { }
 
     (async () => {
       try {
@@ -969,7 +1330,7 @@
             initChatContext(s.sessionId, currentStudentId, cached.name);
 
             let classData = null;
-            try { classData = await apiFetch('/api/classes/' + s.classId); } catch (_) {}
+            try { classData = await apiFetch('/api/classes/' + s.classId); } catch (_) { }
             if (!classData) classData = loadPublishedClassLocal(s.classId);
             if (classData) { startClass(classData, s, result.elapsedSec || 0); return; }
             showNotFound(s.classId);
@@ -986,7 +1347,7 @@
         try {
           const classData = await apiFetch('/api/classes/' + urlSessionId);
           if (classData) { startClass(classData, null, 0); return; }
-        } catch (_) {}
+        } catch (_) { }
         const localClass = loadPublishedClassLocal(urlSessionId);
         if (localClass) { startClass(localClass, null, 0); return; }
 
@@ -997,7 +1358,7 @@
   } else if (urlClassId) {
     (async () => {
       let classData = null;
-      try { classData = await apiFetch('/api/classes/' + urlClassId); } catch (_) {}
+      try { classData = await apiFetch('/api/classes/' + urlClassId); } catch (_) { }
       if (!classData) classData = loadPublishedClassLocal(urlClassId);
       if (classData) startClass(classData, null, 0);
       else showNotFound(urlClassId);
