@@ -1062,13 +1062,10 @@
     let loaderPollInterval = null;
     const bufferingOverlay = document.querySelector('#videoBuffering');
     const bufferingHint = document.querySelector('#videoBufferingHint');
-    let bufferingDelay = null;
     let bufferingWarning = null;
 
     function clearBuffering() {
-      clearTimeout(bufferingDelay);
       clearTimeout(bufferingWarning);
-      bufferingDelay = null;
       bufferingWarning = null;
       if (bufferingOverlay) bufferingOverlay.classList.add('hidden');
     }
@@ -1077,9 +1074,7 @@
       clearBuffering();
       if (bufferingOverlay) bufferingOverlay.querySelector('p').textContent = 'Buffering… Please wait.';
       if (bufferingHint) bufferingHint.textContent = 'Your lesson will resume automatically.';
-      bufferingDelay = setTimeout(() => {
-        if (bufferingOverlay) bufferingOverlay.classList.remove('hidden');
-      }, 300);
+      if (bufferingOverlay) bufferingOverlay.classList.remove('hidden');
       bufferingWarning = setTimeout(() => {
         if (bufferingHint) bufferingHint.textContent = 'Taking longer than usual. Check your connection.';
       }, 10000);
