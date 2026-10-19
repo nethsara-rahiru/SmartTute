@@ -103,6 +103,14 @@
         <div class="video-card">
           <div id="youtubePlayer" title="Lesson video"></div>
           <div class="iframe-click-blocker" aria-hidden="true"></div>
+          <div class="video-buffering hidden" id="videoBuffering" role="status" aria-live="polite">
+            <p>Buffering… Please wait.</p>
+            <p id="videoBufferingHint">Your lesson will resume automatically.</p>
+          </div>
+          <div class="video-complete hidden" id="videoComplete" role="status" aria-live="polite">
+            <h2>Lesson video complete</h2>
+            <p>You have reached the end of the video.</p>
+          </div>
           <div class="video-loader" id="videoLoader" role="status" aria-live="polite">
             <!-- Subtle background animations -->
             <div class="vl-glow" aria-hidden="true"></div>

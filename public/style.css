@@ -504,6 +504,26 @@ body.dark-mode .side-menu .active {
     max-width: 100% !important;
 }
 
+.video-buffering,
+.video-complete {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    text-align: center;
+    background: var(--surface-card);
+    color: var(--text-primary);
+}
+
+.video-buffering.hidden,
+.video-complete.hidden {
+    display: none;
+}
+
 .iframe-click-blocker {
     position: absolute;
     z-index: 1;

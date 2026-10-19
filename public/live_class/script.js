@@ -1004,6 +1004,8 @@
    * ────────────────────────────────────────────────────── */
   function startClass(classData, session, elapsedSecOverride) {
     hideAll();
+    const videoComplete = document.querySelector('#videoComplete');
+    if (videoComplete) videoComplete.classList.add('hidden');
     if (liveClassPage) liveClassPage.classList.remove('hidden');
     if (classMissing) classMissing.classList.add('hidden');
     if (questionBox) {
@@ -1058,6 +1060,32 @@
     const TARGET_VIDEO_TIME_SEC = 5.0;
     let loaderDismissed = false;
     let loaderPollInterval = null;
+    const bufferingOverlay = document.querySelector('#videoBuffering');
+    const bufferingHint = document.querySelector('#videoBufferingHint');
+    let bufferingDelay = null;
+    let bufferingWarning = null;
+
+    function clearBuffering() {
+      clearTimeout(bufferingDelay);
+      clearTimeout(bufferingWarning);
+      bufferingDelay = null;
+      bufferingWarning = null;
+      if (bufferingOverlay) bufferingOverlay.classList.add('hidden');
+    }
+
+    function showBuffering() {
+      clearBuffering();
+      if (bufferingOverlay) bufferingOverlay.querySelector('p').textContent = 'Buffering… Please wait.';
+      if (bufferingHint) bufferingHint.textContent = 'Your lesson will resume automatically.';
+      bufferingDelay = setTimeout(() => {
+        if (bufferingOverlay) bufferingOverlay.classList.remove('hidden');
+      }, 300);
+      bufferingWarning = setTimeout(() => {
+        if (bufferingHint) bufferingHint.textContent = 'Taking longer than usual. Check your connection.';
+      }, 10000);
+    }
+
+    clearBuffering();
 
     function dismissLoaderWithFade() {
       if (loaderDismissed) return;
@@ -1140,7 +1168,41 @@
             }, 50);
           },
           onStateChange: (event) => {
-            // Keep loader active while playing until timer hits 0.05 min
+            if (event.data === YT.PlayerState.BUFFERING) {
+              showBuffering();
+            } else {
+              clearBuffering();
+            }
+            if (event.data === YT.PlayerState.ENDED) {
+              loaderDismissed = true;
+              if (loaderPollInterval) {
+                clearInterval(loaderPollInterval);
+                loaderPollInterval = null;
+              }
+              if (pollInterval) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+              }
+              if (videoLoader) videoLoader.classList.add('hidden');
+              // Hide the actual iframe as well as covering it with the completion panel.
+              event.target.getIframe().style.visibility = 'hidden';
+              if (videoComplete) videoComplete.classList.remove('hidden');
+            } else if (event.data === YT.PlayerState.PLAYING) {
+              event.target.getIframe().style.visibility = '';
+              if (videoComplete) videoComplete.classList.add('hidden');
+              if (!pollInterval) pollInterval = setInterval(checkVideoTime, 250);
+            }
+          },
+          onError: () => {
+            clearBuffering();
+            loaderDismissed = true;
+            if (loaderPollInterval) clearInterval(loaderPollInterval);
+            if (videoLoader) videoLoader.classList.add('hidden');
+            if (bufferingHint) bufferingHint.textContent = 'The video could not play. Refresh the page to try again.';
+            if (bufferingOverlay) {
+              bufferingOverlay.querySelector('p').textContent = 'Unable to play lesson';
+              bufferingOverlay.classList.remove('hidden');
+            }
           }
         }
       });
