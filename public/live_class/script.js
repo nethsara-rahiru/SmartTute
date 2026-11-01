@@ -1056,13 +1056,18 @@
     if (videoLoaderSubstatus) videoLoaderSubstatus.textContent = 'Connecting to video stream…';
     if (videoLoaderProgress) videoLoaderProgress.style.width = '0%';
 
-    // Hold loading screen until video playback timer reaches 0.05 minutes (= 3.00 seconds)
-    const TARGET_VIDEO_TIME_SEC = 5.0;
+    // Reveal the video only after five uninterrupted seconds of playback.
+    const OVERLAY_HOLD_MS = 5000;
     let loaderDismissed = false;
-    let loaderPollInterval = null;
+    let revealTimer = null;
     const bufferingOverlay = document.querySelector('#videoBuffering');
     const bufferingHint = document.querySelector('#videoBufferingHint');
     let bufferingWarning = null;
+
+    function cancelReveal() {
+      clearTimeout(revealTimer);
+      revealTimer = null;
+    }
 
     function clearBuffering() {
       clearTimeout(bufferingWarning);
@@ -1071,6 +1076,7 @@
     }
 
     function showBuffering() {
+      cancelReveal();
       clearBuffering();
       if (bufferingOverlay) bufferingOverlay.querySelector('p').textContent = 'Buffering… Please wait.';
       if (bufferingHint) bufferingHint.textContent = 'Your lesson will resume automatically.';
@@ -1080,25 +1086,31 @@
       }, 10000);
     }
 
-    clearBuffering();
-
-    function dismissLoaderWithFade() {
-      if (loaderDismissed) return;
-      loaderDismissed = true;
-      if (loaderPollInterval) {
-        clearInterval(loaderPollInterval);
-        loaderPollInterval = null;
+    function revealAfterPlayback() {
+      // Duplicate PLAYING events must not restart an existing countdown.
+      if (revealTimer !== null) return;
+      clearTimeout(bufferingWarning);
+      bufferingWarning = null;
+      if (bufferingOverlay && !bufferingOverlay.classList.contains('hidden')) {
+        bufferingOverlay.querySelector('p').textContent = 'Resuming lesson…';
+        if (bufferingHint) bufferingHint.textContent = 'Preparing video playback…';
       }
-      if (videoLoaderProgress) videoLoaderProgress.style.width = '100%';
-      if (videoLoaderSubstatus) videoLoaderSubstatus.textContent = 'Ready! Starting lesson…';
-      if (videoLoader) {
-        videoLoader.classList.add('fading');
-        setTimeout(() => {
+      if (!loaderDismissed && videoLoaderSubstatus) {
+        videoLoaderSubstatus.textContent = 'Preparing lesson playback…';
+      }
+      revealTimer = setTimeout(() => {
+        revealTimer = null;
+        loaderDismissed = true;
+        if (videoLoaderProgress) videoLoaderProgress.style.width = '100%';
+        if (videoLoader) {
           videoLoader.classList.add('hidden');
           videoLoader.classList.remove('fading');
-        }, 600);
-      }
+        }
+        clearBuffering();
+      }, OVERLAY_HOLD_MS);
     }
+
+    clearBuffering();
 
     const videoId = classData.videoId || 'M7lc1UVf-VE';
 
@@ -1130,50 +1142,19 @@
             event.target.playVideo();
             pollInterval = setInterval(checkVideoTime, 250);
 
-            // Poll video playback time and status until it reaches 0.04 minutes (2.4s)
-            loaderPollInterval = setInterval(() => {
-              if (loaderDismissed) return;
-              let curTime = 0;
-              if (player && player.getCurrentTime) {
-                try { curTime = player.getCurrentTime(); } catch (e) { }
-              }
-              const baselineSec = Math.floor(sessionSeekSec) || 0;
-              const elapsedPlayTime = Math.max(0, curTime - baselineSec);
-              const progressPct = Math.min(100, Math.round((elapsedPlayTime / TARGET_VIDEO_TIME_SEC) * 100));
 
-              if (videoLoaderProgress) {
-                videoLoaderProgress.style.width = progressPct + '%';
-              }
-
-              if (videoLoaderSubstatus) {
-                if (elapsedPlayTime < 0.8) {
-                  videoLoaderSubstatus.textContent = 'Buffering video stream…';
-                } else if (elapsedPlayTime < 1.8) {
-                  videoLoaderSubstatus.textContent = 'Synchronizing checkpoints…';
-                } else if (elapsedPlayTime < TARGET_VIDEO_TIME_SEC) {
-                  videoLoaderSubstatus.textContent = 'Preparing lesson playback…';
-                } else {
-                  videoLoaderSubstatus.textContent = 'Ready! Starting lesson…';
-                }
-              }
-
-              if (elapsedPlayTime >= TARGET_VIDEO_TIME_SEC) {
-                dismissLoaderWithFade();
-              }
-            }, 50);
           },
           onStateChange: (event) => {
             if (event.data === YT.PlayerState.BUFFERING) {
               showBuffering();
+            } else if (event.data === YT.PlayerState.PLAYING) {
+              revealAfterPlayback();
             } else {
-              clearBuffering();
+              cancelReveal();
             }
             if (event.data === YT.PlayerState.ENDED) {
+              clearBuffering();
               loaderDismissed = true;
-              if (loaderPollInterval) {
-                clearInterval(loaderPollInterval);
-                loaderPollInterval = null;
-              }
               if (pollInterval) {
                 clearInterval(pollInterval);
                 pollInterval = null;
@@ -1191,7 +1172,7 @@
           onError: () => {
             clearBuffering();
             loaderDismissed = true;
-            if (loaderPollInterval) clearInterval(loaderPollInterval);
+            cancelReveal();
             if (videoLoader) videoLoader.classList.add('hidden');
             if (bufferingHint) bufferingHint.textContent = 'The video could not play. Refresh the page to try again.';
             if (bufferingOverlay) {
