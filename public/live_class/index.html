@@ -1,7 +1,8 @@
 <!doctype html>
 <html lang="en">
 
-<head>
+<head><link rel="stylesheet" href="/sidebar.css"><script defer src="/sidebar.js"></script>
+
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="SmartTute interactive video lesson with pause-and-quiz checkpoints.">
@@ -28,7 +29,7 @@
 
 <body>
   <aside class="left-rail" aria-label="Navigation controls">
-    <button class="menu-button" id="menuButton" aria-label="Open navigation menu"
+    <button class="menu-button" id="stSidebarTrigger" data-sidebar-trigger aria-label="Open navigation menu"
       aria-expanded="false"><i></i><i></i><i></i></button>
     <div class="rail-bottom-actions">
       <button class="rail-icon-button" id="themeToggle" aria-label="Switch to dark mode" title="Toggle theme">☼</button>
@@ -40,18 +41,7 @@
         title="Student account">A</button>
     </div>
   </aside>
-  <div class="menu-backdrop" id="menuBackdrop"></div>
   <div class="help-message hidden" id="helpMessage" role="status">You asked for help</div>
-  <nav class="side-menu" id="sideMenu" aria-label="Main navigation">
-    <div class="menu-brand"><span>S</span>
-      <div><strong>SmartTute</strong><small>Interactive video lesson</small></div><button id="closeMenu"
-        aria-label="Close menu">×</button>
-    </div>
-    <a href=""><span>Profile</span></a>
-    <div class="menu-footer"><b>A</b>
-      <div><strong>Student</strong><small>Grade 10</small></div>
-    </div>
-  </nav>
 
   <!-- ── Student Name Entry Modal (shown when arriving via sessionId link) ── -->
   <div class="name-gate hidden" id="nameGate" role="dialog" aria-modal="true" aria-labelledby="nameGateTitle">

@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+<head><link rel="stylesheet" href="/sidebar.css"><script defer src="/sidebar.js"></script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="SmartTute Class Organizer - Build, organize, and publish interactive video live classes.">
@@ -20,7 +21,7 @@
     <!-- Navigation Rail -->
     <aside class="left-rail" aria-label="Navigation controls">
         <a href="/" class="rail-brand" title="SmartTute Home">S</a>
-        <button class="menu-button" id="menuButton" aria-label="Open navigation menu" aria-expanded="false">
+        <button class="menu-button" id="stSidebarTrigger" data-sidebar-trigger aria-label="Open navigation menu" aria-expanded="false">
             <i></i><i></i><i></i>
         </button>
         <div class="rail-bottom-actions">
@@ -30,21 +31,6 @@
     </aside>
 
     <!-- Side Menu -->
-    <div class="menu-backdrop" id="menuBackdrop"></div>
-    <nav class="side-menu" id="sideMenu" aria-label="Main navigation">
-        <div class="menu-brand">
-            <span>S</span>
-            <div><strong>SmartTute</strong><small>Class Organizer</small></div>
-            <button id="closeMenu" aria-label="Close menu">×</button>
-        </div>
-        <a href="/class_library/index.html">🗂️ <span>Class Library</span></a>
-        <a href="/session_dashboard/index.html">📊 <span>Session Dashboard</span></a>
-        <a href="/tute_library/index.html">📚 <span>Tute Library</span></a>
-        <div class="menu-footer">
-            <b>T</b>
-            <div><strong>Teacher Admin</strong><small>SmartTute Studio</small></div>
-        </div>
-    </nav>
 
     <!-- Main Studio Workspace -->
     <main class="organizer-studio">

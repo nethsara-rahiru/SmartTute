@@ -72,6 +72,11 @@ test('every teacher/admin page and encoded URL rejects students and anonymous vi
     }
     const me = await request('/api/auth/me', { cookie: studentCookie });
     assert.deepEqual(me.data.allowedSections, ['', 'index.html', 'auth', 'live_class']);
+    assert.deepEqual(me.data.navigation.map(item => item.label), ['Home', 'Your profile']);
+    const { navigationFor } = require('../services/pageAccess');
+    const teacherNavigation = navigationFor({ role: 'teacher' });
+    assert(!teacherNavigation.some(item => ['tute_lab', 'class_organizer', 'session_scheduler', 'live_class', 'admin'].includes(item.section)));
+    assert(navigationFor({ role: 'admin' }).some(item => item.section === 'admin'));
 });
 test('profile photos are validated and persisted without allowing script-based images', async () => {
     assert.equal((await request('/api/auth/profile', { method: 'PATCH', cookie: studentCookie, body: { name: 'Ayesha', avatar: 'data:image/svg+xml,<svg onload="alert(1)"/>' } })).status, 400);

@@ -15,9 +15,7 @@
         let user;
         let allowedSections;
         try {
-            const response = await fetch('/api/auth/me', { cache: 'no-store' });
-            if (!response.ok) throw new Error();
-            const data = await response.json();
+            const data = await window.SmartTuteSession;
             user = data.user;
             allowedSections = data.allowedSections;
         } catch (_) { return; }

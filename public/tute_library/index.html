@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 
-<head>
+<head><link rel="stylesheet" href="/sidebar.css"><script defer src="/sidebar.js"></script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description"
@@ -24,7 +25,7 @@
     <!-- Left Navigation Rail -->
     <aside class="left-rail" aria-label="Navigation controls">
         <a href="/" class="rail-brand" title="SmartTute Home">S</a>
-        <button class="menu-button" id="menuButton" aria-label="Open navigation menu" aria-expanded="false">
+        <button class="menu-button" id="stSidebarTrigger" data-sidebar-trigger aria-label="Open navigation menu" aria-expanded="false">
             <i></i><i></i><i></i>
         </button>
         <div class="rail-bottom-actions">
@@ -35,20 +36,6 @@
     </aside>
 
     <!-- Side Navigation Menu -->
-    <div class="menu-backdrop" id="menuBackdrop"></div>
-    <nav class="side-menu" id="sideMenu" aria-label="Main navigation">
-        <div class="menu-brand">
-            <span>S</span>
-            <div><strong>SmartTute</strong><small>Interactive Workspace</small></div>
-            <button id="closeMenu" aria-label="Close menu">×</button>
-        </div>
-        <a href="/tute_library/index.html" class="active">📚 <span>Tute Library</span></a>
-        <a href="/class_library/index.html">🗂️ <span>Class Library</span></a>
-        <div class="menu-footer">
-            <b>T</b>
-            <div><strong>Teacher Portal</strong><small>SmartTute Studio</small></div>
-        </div>
-    </nav>
 
     <!-- Main Workspace Container -->
     <main class="page library-page">
