@@ -3,11 +3,10 @@ const router = express.Router();
 const chatController = require('../controllers/chatController');
 const { requireRole, asyncRoute } = require('../middleware/auth');
 const Session = require('../models/Session');
+router.use(require('../middleware/participant')());
 router.use('/:sessionId', asyncRoute(async (req, res, next) => {
-    req.body.studentId = String(req.user._id);
-    req.body.studentName = req.user.name;
-    if (req.user.role === 'student') {
-        const joined = await Session.exists({ sessionId: req.params.sessionId, 'participants.studentId': String(req.user._id) });
+    if (!req.user || req.user.role === 'student') {
+        const joined = await Session.exists({ sessionId: req.params.sessionId, 'participants.studentId': req.body.studentId });
         if (!joined) return res.status(403).json({ error: 'Join this session before opening its chat.' });
     }
     next();

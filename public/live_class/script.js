@@ -1218,62 +1218,66 @@
     }).catch(() => { });
   }
 
-  if (nameGateForm) {
-    nameGateForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const name = (studentNameInput && studentNameInput.value.trim()) || '';
-      if (!name) { showNameGateError('Please enter your name.'); return; }
-      if (!pendingSession) { showNameGateError('Session data missing, please refresh.'); return; }
+  let currentAccountPromise;
+  function getCurrentAccount() {
+    if (!currentAccountPromise) {
+      currentAccountPromise = (window.SmartTuteSession || apiFetch('/api/auth/me')).then(data => data.user);
+    }
+    return currentAccountPromise;
+  }
 
-      // Disable form while joining
-      if (btnJoinSession) { btnJoinSession.disabled = true; btnJoinSession.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Joining…'; }
+  async function joinAndStart(session, name, account) {
+    const result = await apiFetch('/api/sessions/' + encodeURIComponent(session.sessionId) + '/join', {
+      method: 'POST', body: { name }
+    });
+    currentStudentId = result.studentId;
+    activeSessionObj = result.session || session;
+    const actualName = account ? account.name : name;
+    try {
+      sessionStorage.setItem('st_join_' + session.sessionId, JSON.stringify({
+        name: actualName, accountId: account ? account.id : 'guest'
+      }));
+    } catch (_) { }
+    initChatContext(session.sessionId, currentStudentId, actualName);
+    startHeartbeat(session.sessionId, currentStudentId);
+    let classData = null;
+    try { classData = await apiFetch('/api/classes/' + encodeURIComponent(activeSessionObj.classId)); } catch (_) { }
+    if (!classData) classData = loadPublishedClassLocal(activeSessionObj.classId);
+    if (classData) startClass(classData, activeSessionObj, result.elapsedSec || 0);
+    else showNotFound(activeSessionObj.classId);
+  }
 
-      try {
-        let storedStudentId = null;
-        try { storedStudentId = sessionStorage.getItem('st_student_id_' + pendingSession.sessionId); } catch (_) { }
-        if (!storedStudentId) {
-          storedStudentId = 'stu_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
-          try { sessionStorage.setItem('st_student_id_' + pendingSession.sessionId, storedStudentId); } catch (_) { }
-        }
-
-        const result = await apiFetch('/api/sessions/' + pendingSession.sessionId + '/join', {
-          method: 'POST',
-          body: { name, studentId: storedStudentId }
-        });
-
-        currentStudentId = result.studentId || storedStudentId;
-        // Cache join data so a refresh skips the name gate
-        try {
-          sessionStorage.setItem('st_join_' + pendingSession.sessionId, JSON.stringify({ name, studentId: currentStudentId, sessionId: pendingSession.sessionId }));
-        } catch (_) { }
-
-        // Expose chat context for chat.js
-        initChatContext(pendingSession.sessionId, currentStudentId, name);
-
-        const session = result.session || pendingSession;
-        activeSessionObj = session;
-        const elapsedSec = result.elapsedSec || 0;
-
-        startHeartbeat(session.sessionId, currentStudentId);
-
-        // Fetch class data
-        let classData = null;
-        try {
-          classData = await apiFetch('/api/classes/' + session.classId);
-        } catch (_) { }
-        if (!classData) classData = loadPublishedClassLocal(session.classId);
-
-        if (!classData) {
-          showNotFound(session.classId);
-          return;
-        }
-        startClass(classData, session, elapsedSec);
-
-      } catch (err) {
-        showNameGateError(err.message || 'Failed to join. Please try again.');
-      } finally {
-        if (btnJoinSession) { btnJoinSession.disabled = false; btnJoinSession.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Join Session'; }
+  async function prepareJoin(session) {
+    pendingSession = session;
+    try {
+      const account = await getCurrentAccount();
+      if (account) {
+        // Signed-in students never see the name-entry gate, even if joining is blocked.
+        await joinAndStart(session, account.name, account);
+        return;
       }
+      let cached = null;
+      try { cached = JSON.parse(sessionStorage.getItem('st_join_' + session.sessionId)); } catch (_) { }
+      if (cached && cached.accountId === 'guest' && cached.name) {
+        try { await joinAndStart(session, cached.name, null); return; }
+        catch (err) { showNameGate(session); showNameGateError(err.message); return; }
+      }
+      showNameGate(session);
+    } catch (err) { showJoinBlocked(err.message || 'Unable to join. Please try again.', session); }
+  }
+
+  if (nameGateForm) {
+    nameGateForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!pendingSession) { showNameGateError('Session data missing. Please refresh.'); return; }
+      if (btnJoinSession) btnJoinSession.disabled = true;
+      try {
+        const account = await getCurrentAccount();
+        const name = account ? account.name : ((studentNameInput && studentNameInput.value.trim()) || '');
+        if (!name) { showNameGateError('Please enter your name.'); return; }
+        await joinAndStart(pendingSession, name, account);
+      } catch (err) { showNameGateError(err.message || 'Failed to join. Please try again.'); }
+      finally { if (btnJoinSession) btnJoinSession.disabled = false; }
     });
   }
 
@@ -1298,7 +1302,7 @@
         url.searchParams.set('sessionId', code);
         url.searchParams.delete('classId');
         window.history.replaceState({}, '', url);
-        showNameGate(session);
+        await prepareJoin(session);
         return;
       } catch (_) { }
 
@@ -1346,40 +1350,10 @@
   const urlClassId = getClassIdFromUrl();
 
   if (urlSessionId) {
-    // Check if student already joined this session this browser session
-    let cached = null;
-    try { cached = JSON.parse(sessionStorage.getItem('st_join_' + urlSessionId)); } catch (_) { }
-
     (async () => {
       try {
-        const session = await apiFetch('/api/sessions/' + urlSessionId);
-        pendingSession = session;
-
-        if (cached && cached.name) {
-          // Re-join silently (page refresh), re-record attendance
-          try {
-            const sid = cached.studentId || ('stu_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7));
-            const result = await apiFetch('/api/sessions/' + urlSessionId + '/join', { method: 'POST', body: { name: cached.name, studentId: sid } });
-            const s = result.session || session;
-            activeSessionObj = s;
-            currentStudentId = result.studentId || sid;
-            startHeartbeat(s.sessionId, currentStudentId);
-            // Expose chat context for chat.js
-            initChatContext(s.sessionId, currentStudentId, cached.name);
-
-            let classData = null;
-            try { classData = await apiFetch('/api/classes/' + s.classId); } catch (_) { }
-            if (!classData) classData = loadPublishedClassLocal(s.classId);
-            if (classData) { startClass(classData, s, result.elapsedSec || 0); return; }
-            showNotFound(s.classId);
-          } catch (err) {
-            // Session might be closed now — show gate with error
-            showNameGate(session);
-            showNameGateError(err.message);
-          }
-        } else {
-          showNameGate(session);
-        }
+        const session = await apiFetch('/api/sessions/' + encodeURIComponent(urlSessionId));
+        await prepareJoin(session);
       } catch (_) {
         // Fallback: Check if the ID given was actually a class ID (direct link to class)
         try {

@@ -114,6 +114,37 @@ test('chat identity cannot be forged and students cannot moderate or export chat
     assert.equal((await request('/api/chat/AUTH-TEST/export', { cookie: studentCookie })).status, 403);
     assert.equal((await request('/api/chat/AUTH-TEST/' + sent.data.message._id, { method: 'DELETE', cookie: studentCookie })).status, 403);
 });
+test('guests can load class pages and session metadata without exposing attendance', async () => {
+    assert.equal((await request('/live_class/')).status, 200);
+    const session = await request('/api/sessions/AUTH-TEST');
+    assert.equal(session.status, 200); assert(!('participants' in session.data));
+    assert.equal((await request('/api/sessions')).status, 401);
+    assert.equal((await request('/api/classes')).status, 401);
+    assert.equal((await request('/api/classes', { method: 'POST', body: { classId: 'FORGED' } })).status, 401);
+});
+test('guests join by name with a cookie-bound ID and cannot forge attendance or chat identity', async () => {
+    assert.equal((await request('/api/sessions/AUTH-TEST/join', { method: 'POST', body: {} })).status, 400);
+    const joined = await request('/api/sessions/AUTH-TEST/join', { method: 'POST', body: { name: 'Guest Learner', studentId } });
+    assert.equal(joined.status, 200); assert.match(joined.data.studentId, /^guest_/); assert.notEqual(joined.data.studentId, studentId);
+    const cookie = joined.cookie; assert.match(joined.headers.get('set-cookie'), /HttpOnly/);
+    const again = await request('/api/sessions/AUTH-TEST/join', { method: 'POST', cookie, body: { name: 'Guest Learner', studentId } });
+    assert.equal(again.data.studentId, joined.data.studentId);
+    const chat = await request('/api/chat/AUTH-TEST', { method: 'POST', cookie, body: { studentId, studentName: 'Admin', type: 'text', text: 'A guest question' } });
+    assert.equal(chat.status, 201); assert.equal(chat.data.message.studentId, joined.data.studentId); assert.equal(chat.data.message.studentName, 'Guest Learner');
+    assert.equal((await request('/api/sessions/AUTH-TEST/ping', { method: 'POST', cookie, body: { studentId } })).status, 200);
+    const answer = await request('/api/sessions/AUTH-TEST/response', { method: 'POST', cookie, body: { studentId, cpId: 'guest-check', status: 'answered' } });
+    assert.equal(answer.status, 200);
+    const session = await LessonSession.findOne({ sessionId: 'AUTH-TEST' });
+    assert(session.participants.find(p => p.studentId === joined.data.studentId).checkpoints.has('guest-check'));
+    assert(!session.participants.find(p => p.studentId === studentId).checkpoints.has('guest-check'));
+    assert.equal((await request('/api/chat/AUTH-TEST', { method: 'POST', body: { studentId: joined.data.studentId, studentName: 'Guest Learner', text: 'forged' } })).status, 401);
+    assert.equal((await request('/api/chat/AUTH-TEST/export', { cookie })).status, 401);
+    assert.equal((await request('/api/chat/AUTH-TEST/' + chat.data.message._id, { method: 'DELETE', cookie })).status, 401);
+});
+test('signed-in users join without supplying a name', async () => {
+    const joined = await request('/api/sessions/AUTH-TEST/join', { method: 'POST', cookie: studentCookie, body: {} });
+    assert.equal(joined.status, 200); assert.equal(joined.data.studentId, studentId);
+});
 test('login rotates the session, logout revokes it, and expired tokens cannot authenticate', async () => {
     const loggedIn = await request('/api/auth/login', { method: 'POST', cookie: studentCookie, body: { email: ' AYESHA@example.test ', password: credentials.password } });
     assert.equal(loggedIn.status, 200); assert.notEqual(loggedIn.cookie, studentCookie);

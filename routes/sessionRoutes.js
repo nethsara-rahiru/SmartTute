@@ -3,12 +3,7 @@ const router = express.Router();
 const sessionController = require('../controllers/sessionController');
 const { requireRole } = require('../middleware/auth');
 const teacher = requireRole('teacher', 'admin');
-// Attendance and answers belong to the signed-in account, never a client-supplied ID.
-function accountIdentity(req, res, next) {
-    req.body.studentId = String(req.user._id);
-    req.body.name = req.user.name;
-    next();
-}
+const participant = require('../middleware/participant');
 
 // GET /api/sessions          — list all
 // POST /api/sessions         — create new
@@ -25,12 +20,12 @@ router.route('/:sessionId')
     .delete(teacher, sessionController.deleteSession);
 
 // POST /api/sessions/:sessionId/join — student joins (validates window, records name)
-router.post('/:sessionId/join', accountIdentity, sessionController.joinSession);
+router.post('/:sessionId/join', participant(true), sessionController.joinSession);
 
 // POST /api/sessions/:sessionId/ping — presence heartbeat
-router.post('/:sessionId/ping', accountIdentity, sessionController.pingSession);
+router.post('/:sessionId/ping', participant(), sessionController.pingSession);
 
 // POST /api/sessions/:sessionId/response — record checkpoint answer
-router.post('/:sessionId/response', accountIdentity, sessionController.recordResponse);
+router.post('/:sessionId/response', participant(), sessionController.recordResponse);
 
 module.exports = router;

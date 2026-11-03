@@ -6,7 +6,7 @@ const tuteRoutes = require('./routes/tuteRoutes');
 const sessionRoutes = require('./routes/sessionRoutes');
 const classRoutes = require('./routes/classRoutes');
 const chatRoutes = require('./routes/chatRoutes');
-const { loadUser, sameOrigin, requireUser, requireRole } = require('./middleware/auth');
+const { loadUser, sameOrigin, requireRole } = require('./middleware/auth');
 const { requiredRoles } = require('./services/pageAccess');
 
 const app = express();
@@ -27,7 +27,7 @@ app.use((req, res, next) => {
     try { section = path.posix.normalize(decodeURIComponent(req.path)).split('/')[1]; }
     catch (_) { return res.status(400).send('Invalid URL.'); }
     const roles = requiredRoles(section);
-    if (!roles && section !== 'live_class') return next();
+    if (!roles) return next();
     loadUser(req, res, () => {
         res.set('Cache-Control', 'no-store');
         if (!req.user) return res.redirect('/auth/?mode=login&next=' + encodeURIComponent(req.originalUrl));
@@ -39,9 +39,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // API Routes
 app.use('/api/tutes', requireRole('teacher', 'admin'), tuteRoutes);
-app.use('/api/sessions', requireUser, sessionRoutes);
-app.use('/api/classes', requireUser, classRoutes);
-app.use('/api/chat', requireUser, chatRoutes);
+app.use('/api/sessions', sessionRoutes);
+app.use('/api/classes', classRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Fallback route for root -> serve the landing page
 app.get('/', (req, res) => {

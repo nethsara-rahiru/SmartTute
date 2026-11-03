@@ -91,7 +91,7 @@ exports.getSession = async (req, res) => {
     try {
         const session = await Session.findOne({ sessionId: req.params.sessionId }).lean();
         if (!session) return res.status(404).json({ error: 'Session not found.' });
-        if (req.user.role === 'student') delete session.participants;
+        if (!req.user || req.user.role === 'student') delete session.participants;
         res.json(session);
     } catch (err) {
         res.status(500).json({ error: err.message });
