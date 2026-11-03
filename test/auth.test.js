@@ -54,6 +54,25 @@ test('students cannot visit teacher tools, write classes, list accounts, or assi
     const profile = await request('/api/auth/profile', { method: 'PATCH', cookie: studentCookie, body: { name: 'Ayesha', role: 'admin' } });
     assert.equal(profile.status, 200); assert.equal(profile.data.user.role, 'student');
 });
+test('every teacher/admin page and encoded URL rejects students and anonymous visitors', async () => {
+    const { teacherSections } = require('../services/pageAccess');
+    for (const section of [...teacherSections, 'admin']) {
+        for (const path of [`/${section}/`, `/${section}/index.html`, `/%${section.charCodeAt(0).toString(16)}${section.slice(1)}/index.html`]) {
+            const denied = await request(path, { cookie: studentCookie });
+            assert.equal(denied.status, 403, path);
+            assert.match(denied.data, /Access restricted/);
+            assert.equal((await request(path)).status, 302, `anonymous ${path}`);
+        }
+    }
+    for (const path of ['/', '/auth/?mode=profile', '/live_class/']) {
+        assert.equal((await request(path, { cookie: studentCookie })).status, 200, path);
+    }
+    for (const path of ['/api/tutes', '/api/classes', '/api/sessions', '/api/admin/users?email=test@example.test']) {
+        assert.equal((await request(path, { cookie: studentCookie })).status, 403, path);
+    }
+    const me = await request('/api/auth/me', { cookie: studentCookie });
+    assert.deepEqual(me.data.allowedSections, ['', 'index.html', 'auth', 'live_class']);
+});
 test('profile photos are validated and persisted without allowing script-based images', async () => {
     assert.equal((await request('/api/auth/profile', { method: 'PATCH', cookie: studentCookie, body: { name: 'Ayesha', avatar: 'data:image/svg+xml,<svg onload="alert(1)"/>' } })).status, 400);
     const avatar = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXioAAAAASUVORK5CYII=';

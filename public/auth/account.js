@@ -8,16 +8,25 @@
     function avatar(user) {
         if (user.avatar) return user.avatar;
         const initials = user.name.trim().split(/\s+/).slice(0, 2).map(s => Array.from(s)[0]).join('').toUpperCase().replace(/[<>&"']/g, '');
-        return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" rx="80" fill="#3658ee"/><text x="80" y="96" font-family="sans-serif" font-size="52" text-anchor="middle" fill="white">' + initials + '</text></svg>');
+        return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" rx="80" fill="#2563eb"/><text x="80" y="96" font-family="sans-serif" font-size="52" text-anchor="middle" fill="white">' + initials + '</text></svg>');
     }
     window.SmartTuteAccount = { avatar };
     async function mount() {
         let user;
+        let allowedSections;
         try {
             const response = await fetch('/api/auth/me', { cache: 'no-store' });
             if (!response.ok) throw new Error();
-            user = (await response.json()).user;
+            const data = await response.json();
+            user = data.user;
+            allowedSections = data.allowedSections;
         } catch (_) { return; }
+        // Navigation is a convenience; the server independently enforces permissions.
+        document.querySelectorAll('a[href]').forEach(a => {
+            const url = new URL(a.href, location.origin);
+            const section = decodeURIComponent(url.pathname).split('/')[1];
+            if (url.origin === location.origin && !allowedSections.includes(section)) a.remove();
+        });
         const host = document.createElement('div'); host.className = 'st-account';
         const nav = document.querySelector('header .nav');
         const slot = document.querySelector('[data-account-slot]');

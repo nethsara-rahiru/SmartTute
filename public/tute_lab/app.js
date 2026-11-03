@@ -2002,7 +2002,7 @@ Answer: $n(A \\cup B) =$ {{answer2}}.`,
     // Light / Dark Theme Toggle
     const themeToggle = document.getElementById('themeToggle');
     if (themeToggle) {
-        const savedTheme = localStorage.getItem('theme');
+        const savedTheme = localStorage.getItem('smarttute_theme') || localStorage.getItem('theme');
         if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
             document.body.classList.add('dark-mode');
             themeToggle.classList.add('dark');
@@ -2014,6 +2014,7 @@ Answer: $n(A \\cup B) =$ {{answer2}}.`,
             themeToggle.classList.toggle('dark', isDark);
             themeToggle.setAttribute('aria-label', isDark ? 'Switch to light mode' : 'Switch to dark mode');
             localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            localStorage.setItem('smarttute_theme', isDark ? 'dark' : 'light');
         };
     }
 

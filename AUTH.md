@@ -34,3 +34,9 @@ npm run test:auth
 ```
 
 Tests create and drop their own `SmartTute_auth_test_<pid>` database on localhost. They never use the deployment's CONNECTION_STRING.
+
+## Shared appearance and page access
+
+`public/theme.css` is the shared Live Class token source (Inter font, blue/purple accents, slate text, surfaces, borders, radii and dark-mode colours). Classroom tools import it through `style.css`; landing and account pages use the same tokens. The landing and account theme buttons persist the same `smarttute_theme` setting as Live Class.
+
+`services/pageAccess.js` centralizes page permissions and supplies the allowed navigation sections through `/api/auth/me`. Students can use the homepage, account/profile pages, and Live Class. Tute Lab/Library, Class Organizer/Library, Session Scheduler/Dashboard, Schedules and Live Chatbox require a teacher or admin. Account management requires an admin. Anonymous class visits redirect to sign-in; authenticated users without the role receive a styled HTTP 403 page. Navigation filtering supplements server/API authorization.

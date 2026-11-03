@@ -27,7 +27,7 @@
     function message(text, success) { $('message').textContent = text; $('message').classList.toggle('success', !!success); }
     function initials(user) {
         const text = user.name.trim().split(/\s+/).slice(0, 2).map(s => Array.from(s)[0]).join('').toUpperCase().replace(/[<>&"']/g, '');
-        return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><rect width="160" height="160" fill="#3658ee"/><text x="80" y="100" text-anchor="middle" font-family="sans-serif" font-size="55" fill="white">' + text + '</text></svg>');
+        return 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><rect width="160" height="160" fill="#2563eb"/><text x="80" y="100" text-anchor="middle" font-family="sans-serif" font-size="55" fill="white">' + text + '</text></svg>');
     }
     try {
         const { user } = await request('me', 'GET'); currentUser = user;
@@ -60,7 +60,7 @@
             bitmap = await createImageBitmap(file);
             const canvas = document.createElement('canvas'); canvas.width = canvas.height = 192;
             const ctx = canvas.getContext('2d'); const side = Math.min(bitmap.width, bitmap.height);
-            ctx.fillStyle = '#f6f5f0'; ctx.fillRect(0, 0, 192, 192);
+            ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, 0, 192, 192);
             ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, 192, 192);
             avatar = canvas.toDataURL('image/jpeg', .85); $('photoPreview').src = avatar; message('Photo ready. Save your profile to apply it.', true);
         } catch (_) { message('Unable to read that image. Please choose another photo.'); }

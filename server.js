@@ -7,6 +7,7 @@ const sessionRoutes = require('./routes/sessionRoutes');
 const classRoutes = require('./routes/classRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const { loadUser, sameOrigin, requireUser, requireRole } = require('./middleware/auth');
+const { requiredRoles } = require('./services/pageAccess');
 
 const app = express();
 
@@ -21,17 +22,16 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Static frontend serving
-const teacherPages = ['tute_library', 'tute_lab', 'class_library', 'class_organizer', 'session_scheduler', 'session_dashboard', 'schedules', 'live_chatbox'];
 app.use((req, res, next) => {
     let section;
     try { section = path.posix.normalize(decodeURIComponent(req.path)).split('/')[1]; }
     catch (_) { return res.status(400).send('Invalid URL.'); }
-    const roles = section === 'admin' ? ['admin'] : teacherPages.includes(section) ? ['teacher', 'admin'] : null;
+    const roles = requiredRoles(section);
     if (!roles && section !== 'live_class') return next();
     loadUser(req, res, () => {
         res.set('Cache-Control', 'no-store');
         if (!req.user) return res.redirect('/auth/?mode=login&next=' + encodeURIComponent(req.originalUrl));
-        if (roles && !roles.includes(req.user.role)) return res.status(403).send('This page is for teachers or administrators. <a href="/">Return home</a>');
+        if (roles && !roles.includes(req.user.role)) return res.status(403).sendFile(path.join(__dirname, 'public', 'auth', 'access-denied.html'));
         next();
     });
 });

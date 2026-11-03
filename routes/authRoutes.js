@@ -4,6 +4,7 @@ const AuthSession = require('../models/AuthSession');
 const { hashPassword, verifyPassword } = require('../services/passwords');
 const { asyncRoute, requireUser, issueSession, publicUser, readToken, tokenHash, COOKIE, cookieOptions } = require('../middleware/auth');
 const rateLimit = require('../middleware/authRateLimit');
+const { allowedSections } = require('../services/pageAccess');
 const router = express.Router();
 const normalizeEmail = value => typeof value === 'string' ? value.trim().toLowerCase() : '';
 const validPassword = value => typeof value === 'string' && value.length >= 10 && Buffer.byteLength(value) <= 256;
@@ -11,7 +12,7 @@ const validPassword = value => typeof value === 'string' && value.length >= 10 &
 const dummyHash = '00000000000000000000000000000000:' + '00'.repeat(64);
 
 router.use((req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
-router.get('/me', (req, res) => res.json({ user: req.user ? publicUser(req.user) : null }));
+router.get('/me', (req, res) => res.json({ user: req.user ? publicUser(req.user) : null, allowedSections: allowedSections(req.user) }));
 
 router.post('/register', rateLimit, asyncRoute(async (req, res) => {
     const email = normalizeEmail(req.body.email);
