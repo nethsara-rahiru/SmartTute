@@ -8033,3 +8033,28 @@ body.dark-mode .mode-badge.mode-oa {
         display: block !important;
     }
 }
+
+/* Session dashboard actions in schedule cards and calendar entries. */
+.calendar-events > .calendar-event-pill { flex-shrink: 0; }
+.session-card .card-actions { flex-wrap: wrap; }
+.session-card .btn-dashboard {
+    flex: 1 1 150px;
+    background: var(--brand-soft);
+    color: var(--text-accent);
+    text-decoration: none;
+}
+.session-card .btn-dashboard:hover { background: var(--blue); color: var(--on-brand); }
+.calendar-event-pill .calendar-dashboard {
+    display: block;
+    width: fit-content;
+    margin-top: 5px;
+    padding: 3px 5px;
+    border: 1px solid currentColor;
+    border-radius: var(--radius-sm);
+    color: inherit;
+    font-size: 0.65rem;
+    line-height: 1.4;
+    text-decoration: none;
+    white-space: normal;
+}
+.calendar-dashboard:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }

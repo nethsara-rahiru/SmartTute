@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCopySessionUrl = document.getElementById('btnCopySessionUrl');
     const btnCloseShare = document.getElementById('btnCloseShare');
     const btnOpenLive = document.getElementById('btnOpenLive');
+    const btnOpenDashboard = document.getElementById('btnOpenDashboard');
 
     const deleteModal = document.getElementById('deleteModal');
     const deleteSessionTitle = document.getElementById('deleteSessionTitle');
@@ -235,6 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 escapeHtml(session.classTitle || session.classId) + '</p>' +
                 (pCount > 0 ? '<p class="session-participants"><i class="fa-solid fa-users"></i> ' + pCount + ' student' + (pCount === 1 ? '' : 's') + ' joined</p>' : '') +
                 '<div class="card-actions">' +
+                '<a href="/session_dashboard/index.html?sessionId=' + encodeURIComponent(session.sessionId) + '" class="card-btn btn-dashboard"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Session Dashboard</a>' +
                 '<a href="/session_scheduler/index.html?sessionId=' + encodeURIComponent(session.sessionId) + '" class="card-btn btn-edit"><i class="fa-solid fa-pen-to-square"></i> Edit</a>' +
                 '<button type="button" class="card-btn btn-share"><i class="fa-solid fa-share-nodes"></i> Share / Join</button>' +
                 '<button type="button" class="card-btn btn-delete"><i class="fa-solid fa-trash-can"></i></button>' +
@@ -307,8 +309,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     const st = sessionStatus(s);
                     const timeStr = new Date(s.startAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     cellContent +=
-                        '<div class="calendar-event-pill status-' + st.key + '" data-id="' + s.sessionId + '">' +
+                        '<div class="calendar-event-pill status-' + st.key + '" data-id="' + escapeHtml(s.sessionId) + '">' +
                         '<span class="ev-time">' + timeStr + '</span> ' + escapeHtml(s.title) +
+                        '<a class="calendar-dashboard" href="/session_dashboard/index.html?sessionId=' + encodeURIComponent(s.sessionId) + '"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Session Dashboard</a>' +
                         '</div>';
                 });
                 cellContent += '</div>';
@@ -318,6 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Bind click events on event pills
             cell.querySelectorAll('.calendar-event-pill').forEach(pill => {
+                pill.querySelector('.calendar-dashboard').addEventListener('click', e => e.stopPropagation());
                 pill.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const sid = pill.dataset.id;
@@ -402,6 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
             shareQrImage.src = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(url);
         }
         if (btnOpenLive) btnOpenLive.href = url;
+        if (btnOpenDashboard) btnOpenDashboard.href = '/session_dashboard/index.html?sessionId=' + encodeURIComponent(session.sessionId);
         if (shareMeta) {
             let metaHtml = '<p><strong>Class:</strong> ' + escapeHtml(session.classTitle || session.classId) + '</p>';
             if (isOA) {
