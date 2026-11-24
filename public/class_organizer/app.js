@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isScrubbing      = false;
     let scrubTime        = 0; // seconds — pointer position; play starts from here
     let activeTriggeredCpId = null;
+    let selectedBulkQuestionIndices = new Set();
     let editingClassId   = null; // set when opening a saved class from Class Library
     const TRACK_LABEL_W  = 100; // must match .track-label width in CSS
     const STORE_KEY      = 'smarttute_published_classes';
@@ -29,6 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnLoadYt             = document.getElementById('btnLoadYt');
     const tuteSelect            = document.getElementById('tuteSelect');
     const questionsDragList     = document.getElementById('questionsDragList');
+    const bulkQuestionCount     = document.getElementById('bulkQuestionCount');
+    const btnAddQuestionBatch   = document.getElementById('btnAddQuestionBatch');
     const inspectorEmpty        = document.getElementById('inspectorEmpty');
     const inspectorForm         = document.getElementById('inspectorForm');
     const activeItemBadge       = document.getElementById('activeItemBadge');
@@ -199,6 +202,9 @@ document.addEventListener('DOMContentLoaded', () => {
         checkpoints = (classData.checkpoints || []).map((cp, idx) => ({
             id: cp.id || ('cp_' + Date.now() + '_' + idx),
             questionIndex: Number(cp.questionIndex) || 0,
+            questionIndices: Array.isArray(cp.questionIndices) && cp.questionIndices.length
+                ? cp.questionIndices.map(Number).filter(Number.isInteger)
+                : [Number(cp.questionIndex) || 0],
             time: Math.max(0, Number(cp.time) || 0),
             duration: Math.max(5, Number(cp.duration) || 60),
             pauseVideo: cp.pauseVideo !== false
@@ -249,20 +255,29 @@ document.addEventListener('DOMContentLoaded', () => {
     /* TOOLBOX QUESTIONS */
     function renderQuestionsToolbox() {
         if (!selectedTute || !Array.isArray(selectedTute.questions) || !selectedTute.questions.length) {
+            selectedBulkQuestionIndices.clear();
             questionsDragList.innerHTML = '<div class="drag-hint">No questions found in selected Tute</div>';
+            updateBulkQuestionControls();
             return;
         }
         questionsDragList.innerHTML = '';
+        selectedBulkQuestionIndices = new Set([...selectedBulkQuestionIndices]
+            .filter(index => index >= 0 && index < selectedTute.questions.length));
         selectedTute.questions.forEach((q, idx) => {
             const item = document.createElement('div');
             item.className = 'question-drag-item';
             item.setAttribute('draggable', 'true');
             item.dataset.questionIndex = idx;
             item.innerHTML =
+                '<label class="bulk-question-check"><input type="checkbox" data-bulk-question="' + idx + '"' + (selectedBulkQuestionIndices.has(idx) ? ' checked' : '') + ' aria-label="Add question ' + (idx + 1) + ' to a batch"> </label>' +
                 '<div class="q-drag-title"><i class="fa-solid fa-grip-vertical"></i> Q' + (idx + 1) + ': ' + escapeHtml(q.promptText || q.title || 'Question ' + (idx + 1)) + '</div>' +
                 '<button class="btn-add-cp" title="Add to timeline at current playhead time"><i class="fa-solid fa-plus"></i></button>';
 
             item.addEventListener('dragstart', (e) => {
+                if (e.target.closest('.bulk-question-check')) {
+                    e.preventDefault();
+                    return;
+                }
                 e.dataTransfer.setData('questionIndex', String(idx));
                 e.dataTransfer.effectAllowed = 'copy';
             });
@@ -271,7 +286,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 const curTime = player && isPlayerReady ? Math.floor(player.getCurrentTime()) : 30;
                 addCheckpoint(idx, curTime);
             });
+            item.querySelector('[data-bulk-question]').addEventListener('change', (event) => {
+                if (event.target.checked) selectedBulkQuestionIndices.add(idx);
+                else selectedBulkQuestionIndices.delete(idx);
+                updateBulkQuestionControls();
+            });
+            item.querySelector('[data-bulk-question]').addEventListener('click', (event) => event.stopPropagation());
             questionsDragList.appendChild(item);
+        });
+        updateBulkQuestionControls();
+    }
+
+    function updateBulkQuestionControls() {
+        const count = selectedBulkQuestionIndices.size;
+        if (bulkQuestionCount) bulkQuestionCount.textContent = count + ' selected';
+        if (btnAddQuestionBatch) btnAddQuestionBatch.disabled = count < 2;
+    }
+
+    if (btnAddQuestionBatch) {
+        btnAddQuestionBatch.addEventListener('click', () => {
+            const indices = [...selectedBulkQuestionIndices].sort((a, b) => a - b);
+            if (indices.length < 2) return;
+            const curTime = player && isPlayerReady ? Math.floor(player.getCurrentTime()) : 30;
+            addCheckpoint(indices, curTime);
+            selectedBulkQuestionIndices.clear();
+            renderQuestionsToolbox();
         });
     }
 
@@ -294,11 +333,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* CHECKPOINTS */
-    function addCheckpoint(qIndex, triggerTime) {
+    function addCheckpoint(questionIndices, triggerTime) {
         triggerTime = triggerTime || 30;
+        const indices = (Array.isArray(questionIndices) ? questionIndices : [questionIndices])
+            .map(Number).filter(Number.isInteger);
+        if (!indices.length) return;
         const newCp = {
             id: 'cp_' + Date.now(),
-            questionIndex: qIndex,
+            questionIndex: indices[0],
+            questionIndices: indices,
             time: Math.max(0, Math.min(triggerTime, videoDuration)),
             duration: 60,
             pauseVideo: true
@@ -312,17 +355,18 @@ document.addEventListener('DOMContentLoaded', () => {
         questionsTrackContent.innerHTML = '';
         checkpoints.forEach((cp) => {
             const pct  = Math.min(100, Math.max(0, (cp.time / videoDuration) * 100));
-            const qNum = cp.questionIndex + 1;
+            const qNums = (cp.questionIndices || [cp.questionIndex]).map(i => i + 1);
+            const qLabel = qNums.length === 1 ? 'Q' + qNums[0] : 'Q' + qNums[0] + '–Q' + qNums[qNums.length - 1];
 
             const marker = document.createElement('div');
             marker.className = 'checkpoint-marker' + (activeCheckpointId === cp.id ? ' active' : '');
             marker.style.left = pct + '%';
             marker.dataset.cpId = cp.id;
-            marker.title = 'Q' + qNum + ' - drag to change trigger time';
+            marker.title = qLabel + ' (' + qNums.length + ' question' + (qNums.length === 1 ? '' : 's') + ') - drag to change trigger time';
 
             marker.innerHTML =
                 '<div class="marker-pill">' +
-                '  <i class="fa-solid fa-circle-dot"></i> Q' + qNum +
+                '  <i class="fa-solid fa-circle-dot"></i> ' + qLabel +
                 '  <span class="marker-time">(' + formatTime(cp.time) + ')</span>' +
                 '</div>' +
                 '<div class="marker-line"></div>';
@@ -406,10 +450,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (inspectorEmpty) inspectorEmpty.classList.add('hidden');
         if (inspectorForm)  inspectorForm.classList.remove('hidden');
-        if (activeItemBadge) activeItemBadge.textContent = 'Checkpoint Q' + (cp.questionIndex + 1);
+        const questionCount = (cp.questionIndices || [cp.questionIndex]).length;
+        if (activeItemBadge) activeItemBadge.textContent = 'Checkpoint · ' + questionCount + ' question' + (questionCount === 1 ? '' : 's');
 
         updateInspectorQuestionDropdown();
-        if (cpQuestionSelect) cpQuestionSelect.value = cp.questionIndex;
+        if (cpQuestionSelect) {
+            const selected = new Set(cp.questionIndices || [cp.questionIndex]);
+            [...cpQuestionSelect.options].forEach(option => { option.selected = selected.has(Number(option.value)); });
+        }
         if (cpTimeInput)      cpTimeInput.value       = cp.time;
         if (cpDurationInput)  cpDurationInput.value   = cp.duration;
         if (cpPauseToggle)    cpPauseToggle.checked   = cp.pauseVideo;
@@ -434,7 +482,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (cpQuestionSelect) {
         cpQuestionSelect.addEventListener('change', (e) => {
             const cp = checkpoints.find(c => c.id === activeCheckpointId);
-            if (cp) { cp.questionIndex = parseInt(e.target.value, 10); renderTimelineMarkers(); }
+            const indices = [...e.target.selectedOptions].map(option => Number(option.value)).filter(Number.isInteger);
+            if (cp && indices.length) {
+                cp.questionIndices = indices;
+                cp.questionIndex = indices[0]; // legacy compatibility for existing class data
+                renderTimelineMarkers();
+                selectCheckpoint(cp.id);
+            }
         });
     }
 
@@ -734,16 +788,20 @@ document.addEventListener('DOMContentLoaded', () => {
             publishedAt: new Date().toISOString(),
             videoDuration: videoDuration,
             checkpoints: sorted.map((cp) => {
-                const rawQ = selectedTute && Array.isArray(selectedTute.questions)
-                    ? selectedTute.questions[cp.questionIndex]
-                    : null;
+                const questionIndices = (cp.questionIndices || [cp.questionIndex]).filter(Number.isInteger);
+                const questions = selectedTute && Array.isArray(selectedTute.questions)
+                    ? questionIndices.map(index => serializeQuestion(selectedTute.questions[index], index))
+                    : [];
                 return {
                     id: cp.id,
                     time: Number(cp.time) || 0,
                     duration: Math.max(5, Number(cp.duration) || 60),
                     pauseVideo: cp.pauseVideo !== false,
-                    questionIndex: cp.questionIndex,
-                    question: serializeQuestion(rawQ, cp.questionIndex)
+                    questionIndex: questionIndices[0],
+                    questionIndices,
+                    // question stays for older Live Class versions; questions is the batch payload.
+                    question: questions[0] || serializeQuestion(null, questionIndices[0] || 0),
+                    questions
                 };
             })
         };
@@ -779,10 +837,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function triggerPreviewCheckpoint(cp) {
         if (cp.pauseVideo && player && player.pauseVideo) player.pauseVideo();
-        if (!selectedTute || !selectedTute.questions || !selectedTute.questions[cp.questionIndex]) return;
+        const questionIndices = cp.questionIndices || [cp.questionIndex];
+        if (!selectedTute || !selectedTute.questions || !selectedTute.questions[questionIndices[0]]) return;
 
-        const q = serializeQuestion(selectedTute.questions[cp.questionIndex], cp.questionIndex);
-        if (previewQBadge) previewQBadge.textContent = 'Checkpoint Q' + (cp.questionIndex + 1) + ' · ' + (cp.duration || 60) + 's';
+        const q = serializeQuestion(selectedTute.questions[questionIndices[0]], questionIndices[0]);
+        if (previewQBadge) previewQBadge.textContent = 'Checkpoint · Question 1 of ' + questionIndices.length + ' · ' + (cp.duration || 60) + 's each';
         if (previewQTitle) previewQTitle.textContent = q.title || q.text || 'Interactive Question';
 
         if (previewQOptions) {
@@ -799,6 +858,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 hint.className = 'preview-tute-hint';
                 hint.textContent = 'Tute question (title, latex, images & answer boxes) will open in Live Class.';
                 previewQOptions.appendChild(hint);
+            }
+            if (questionIndices.length > 1) {
+                const more = document.createElement('p');
+                more.className = 'preview-tute-hint';
+                more.textContent = (questionIndices.length - 1) + ' more question' + (questionIndices.length === 2 ? '' : 's') + ' follow in this batch.';
+                previewQOptions.appendChild(more);
             }
         }
         if (previewQOverlay) previewQOverlay.classList.remove('hidden');

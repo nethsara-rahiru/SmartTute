@@ -84,6 +84,12 @@
                     <!-- Draggable Questions List -->
                     <div class="tool-group">
                         <label class="tool-label"><i class="fa-solid fa-layer-group text-purple"></i> Question Items</label>
+                        <div class="bulk-question-toolbar">
+                            <span id="bulkQuestionCount">0 selected</span>
+                            <button type="button" class="org-btn org-btn-secondary btn-sm" id="btnAddQuestionBatch" disabled>
+                                <i class="fa-solid fa-layer-group"></i> Add selected as batch
+                            </button>
+                        </div>
                         <div class="questions-drag-list" id="questionsDragList">
                             <div class="drag-hint">Select a Tute above to load interactive questions</div>
                         </div>
@@ -109,8 +115,9 @@
                             <h4><i class="fa-solid fa-sliders"></i> Checkpoint Settings</h4>
 
                             <div class="form-field">
-                                <label>Target Question</label>
-                                <select id="cpQuestionSelect" class="tool-select"></select>
+                                <label for="cpQuestionSelect">Questions in this checkpoint</label>
+                                <select id="cpQuestionSelect" class="tool-select" multiple size="5" aria-describedby="cpQuestionHint"></select>
+                                <small id="cpQuestionHint" class="field-hint">Choose one or more questions. Students complete them in this order before the lesson continues.</small>
                             </div>
 
                             <div class="form-row">

@@ -653,6 +653,7 @@
   let ytApiLoading = false;
   let checkpoints = [];
   let activeIndex = -1;
+  let activeQuestionIndex = 0;
   let answered = false;
   let lastGradeResult = null;
   let timerInterval = null;
@@ -693,14 +694,26 @@
     showCheckpoint(idx != null ? idx : (checkpoints.length ? 0 : -1));
   };
 
-  function showCheckpoint(index) {
+  function getCheckpointQuestions(checkpoint) {
+    if (Array.isArray(checkpoint && checkpoint.questions) && checkpoint.questions.length) return checkpoint.questions;
+    return checkpoint && checkpoint.question ? [checkpoint.question] : [];
+  }
+
+  function hasNextBatchQuestion() {
+    const checkpoint = checkpoints[activeIndex];
+    return activeQuestionIndex + 1 < getCheckpointQuestions(checkpoint).length;
+  }
+
+  function showCheckpoint(index, questionIndex) {
     activeIndex = index;
+    activeQuestionIndex = Number.isInteger(questionIndex) ? questionIndex : 0;
     answered = false;
     lastGradeResult = null;
     resetCelebrationUI();
     cpStartTime = Date.now();
     const cp = checkpoints[index];
-    const q = cp.question || {};
+    const batchQuestions = getCheckpointQuestions(cp);
+    const q = batchQuestions[activeQuestionIndex] || {};
 
     if (cp.pauseVideo !== false && player && player.pauseVideo) player.pauseVideo();
 
@@ -711,7 +724,8 @@
     if (activeBox) activeBox.classList.remove('hidden');
     if (classMissing) classMissing.classList.add('hidden');
 
-    questionCount.textContent = 'CHECKPOINT ' + (index + 1) + ' OF ' + checkpoints.length;
+    questionCount.textContent = 'CHECKPOINT ' + (index + 1) + ' OF ' + checkpoints.length +
+      (batchQuestions.length > 1 ? ' · QUESTION ' + (activeQuestionIndex + 1) + ' OF ' + batchQuestions.length : '');
     feedback.textContent = '';
     feedback.className = 'feedback';
     continueButton.disabled = false;
@@ -720,7 +734,8 @@
     if (q.type === 'tute' || q.latex || q.images) {
       if (liveTuteQuestion) liveTuteQuestion.classList.remove('hidden');
       if (answers) { answers.classList.add('hidden'); answers.innerHTML = ''; }
-      if (liveQBadge) liveQBadge.textContent = 'Question ' + ((cp.questionIndex != null ? cp.questionIndex : index) + 1);
+      const sourceIndex = Array.isArray(cp.questionIndices) ? cp.questionIndices[activeQuestionIndex] : cp.questionIndex;
+      if (liveQBadge) liveQBadge.textContent = 'Question ' + ((sourceIndex != null ? sourceIndex : index) + 1);
       if (questionTitle) questionTitle.textContent = q.title || 'Checkpoint question';
       if (questionMarks) questionMarks.textContent = q.marks != null ? '[' + q.marks + ' Marks]' : '';
       if (questionBody) {
@@ -763,7 +778,7 @@
 
   function gradeTuteQuestion() {
     const cp = checkpoints[activeIndex];
-    const q = cp.question || {};
+    const q = getCheckpointQuestions(cp)[activeQuestionIndex] || {};
     const answersMap = q.answers || {};
     const ids = collectRenderedAnswerIds();
     let allCorrect = true;
@@ -839,13 +854,13 @@
     }
 
     const timeTaken = (Date.now() - (cpStartTime || Date.now())) / 1000;
-    reportResponse(cp.id || ('cp_' + activeIndex), 'answered', isOk, timeTaken);
+    reportResponse((cp.id || ('cp_' + activeIndex)) + ':' + activeQuestionIndex, 'answered', isOk, timeTaken);
     return isOk;
   }
 
   function gradeMcq(choice) {
     const cp = checkpoints[activeIndex];
-    const q = cp.question || {};
+    const q = getCheckpointQuestions(cp)[activeQuestionIndex] || {};
     const correct = typeof q.correct === 'number' ? q.correct : 0;
     const buttons = answers.querySelectorAll('button.answer');
     buttons.forEach((item, i) => { item.disabled = true; if (i === correct) item.classList.add('correct'); });
@@ -864,7 +879,7 @@
     };
 
     const timeTaken = (Date.now() - (cpStartTime || Date.now())) / 1000;
-    reportResponse(cp.id || ('cp_' + activeIndex), 'answered', isCorrect, timeTaken);
+    reportResponse((cp.id || ('cp_' + activeIndex)) + ':' + activeQuestionIndex, 'answered', isCorrect, timeTaken);
     return isCorrect;
   }
 
@@ -874,7 +889,7 @@
     clearTimer();
 
     const cp = checkpoints[activeIndex];
-    const q = cp.question || {};
+    const q = getCheckpointQuestions(cp)[activeQuestionIndex] || {};
 
     if (q.type === 'tute' || q.latex || q.images) {
       lastGradeResult = gradeTuteQuestion();
@@ -890,10 +905,10 @@
       feedback.className = 'feedback bad';
 
       const timeTaken = (Date.now() - (cpStartTime || Date.now())) / 1000;
-      reportResponse(cp.id || ('cp_' + activeIndex), 'not_answered', false, timeTaken);
+      reportResponse((cp.id || ('cp_' + activeIndex)) + ':' + activeQuestionIndex, 'not_answered', false, timeTaken);
     }
 
-    completed.add(activeIndex);
+    if (!hasNextBatchQuestion()) completed.add(activeIndex);
 
     // Hide the continue button during results/auto-continue flow
     if (continueButton) {
@@ -931,6 +946,13 @@
       hideQuestionBoxTimeout = null;
     }
     if (!questionBox) return;
+
+    // A batch stays in the question flow until every selected question is attempted.
+    if (hasNextBatchQuestion()) {
+      resetCelebrationUI();
+      showCheckpoint(activeIndex, activeQuestionIndex + 1);
+      return;
+    }
 
     questionBox.classList.add('question-box-collapsing');
     setTimeout(() => {
@@ -974,7 +996,7 @@
     continueButton.onclick = () => {
       if (activeIndex < 0) return;
       const cp = checkpoints[activeIndex];
-      const q = cp.question || {};
+      const q = getCheckpointQuestions(cp)[activeQuestionIndex] || {};
       if (!answered) {
         if (q.type === 'mcq' && !(q.latex || q.images)) return;
         finishCheckpoint(false);
@@ -1021,6 +1043,7 @@
     checkpoints = (classData.checkpoints || []).slice().sort((a, b) => (a.time || 0) - (b.time || 0));
     completed.clear();
     activeIndex = -1;
+    activeQuestionIndex = 0;
     answered = false;
     clearTimer();
     resetCelebrationUI();

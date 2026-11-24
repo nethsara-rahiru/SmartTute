@@ -100,6 +100,28 @@ test('only admins promote students; changes take effect in an existing session; 
     await request('/api/admin/users/' + studentId + '/role', { method: 'PATCH', cookie: adminCookie, body: { role: 'student' } });
     assert.equal((await request('/tute_library/', { cookie: studentCookie })).status, 403);
 });
+test('class checkpoints preserve ordered question batches for the live class', async () => {
+    const payload = {
+        classId: 'BATCH-TEST',
+        title: 'Batch checkpoint test',
+        checkpoints: [{
+            id: 'batch-1', time: 30, duration: 45,
+            questionIndex: 1,
+            questionIndices: [1, 3],
+            questions: [
+                { type: 'mcq', title: 'First batch question', options: ['A', 'B'], correct: 0 },
+                { type: 'mcq', title: 'Second batch question', options: ['C', 'D'], correct: 1 }
+            ]
+        }]
+    };
+    const saved = await request('/api/classes', { method: 'POST', cookie: adminCookie, body: payload });
+    assert.equal(saved.status, 200);
+    assert.deepEqual(saved.data.checkpoints[0].questionIndices, [1, 3]);
+    assert.equal(saved.data.checkpoints[0].questions.length, 2);
+    const publicClass = await request('/api/classes/BATCH-TEST');
+    assert.equal(publicClass.status, 200);
+    assert.deepEqual(publicClass.data.checkpoints[0].questions.map(question => question.title), ['First batch question', 'Second batch question']);
+});
 test('student attendance uses account identity and does not expose the participant list', async () => {
     await LessonSession.create({ sessionId: 'AUTH-TEST', classId: 'TEST-CLASS', mode: 'open_anytime', isOpen: true });
     const joined = await request('/api/sessions/AUTH-TEST/join', { method: 'POST', cookie: studentCookie, body: { studentId: 'someone-else', name: 'Forged name' } });
