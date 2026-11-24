@@ -63,6 +63,11 @@ if (require.main === module) {
         app.listen(PORT, () => {
         console.log(`SmartTute Express Server running on http://localhost:${PORT}`);
         });
-    }).catch(err => { console.error('Startup failed:', err.name); process.exitCode = 1; });
+    }).catch(err => {
+        // Keep the Atlas error details: the message/code identify the exact index or permission that failed.
+        console.error('Startup failed:', err.name, err.code || '', err.message);
+        if (err.codeName) console.error('MongoDB code name:', err.codeName);
+        process.exitCode = 1;
+    });
 }
 module.exports = app;
